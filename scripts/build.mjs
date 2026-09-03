@@ -1,0 +1,32 @@
+import { readFile, writeFile, readdir, mkdir, cp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { createStoredZip } from '../extension/zip-store.js';
+const manifest = JSON.parse(await readFile('extension/manifest.json', 'utf8'));
+const packageInfo = JSON.parse(await readFile('package.json', 'utf8'));
+if (packageInfo.version !== manifest.version) throw new Error('Package and extension versions must match');
+const version = manifest.version;
+const date = new Date('2026-09-03T00:00:00Z');
+const runtimeFiles = ['manifest.json','content.js','compare-engine.js','service-worker.js','zip-store.js','popup.html','popup.css','popup.js', ...Object.values(manifest.icons)];
+const entries = await Promise.all(runtimeFiles.map(async name => ({ name:`UIDelta/${name}`, data:await readFile(join('extension', name)) })));
+entries.push({ name:'UIDelta/LICENSE', data:await readFile('LICENSE') });
+entries.push({ name:'UIDelta/INSTALL.md', data:await readFile('docs/INSTALL.md') });
+await mkdir('release', {recursive:true});
+await mkdir('site/downloads', {recursive:true});
+const extensionZip = await createStoredZip(entries, date);
+const extensionName = `UIDelta-v${version}.zip`;
+await writeFile(join('release', extensionName), extensionZip);
+await writeFile(join('site/downloads', extensionName), extensionZip);
+const brandEntries = [];
+for (const name of (await readdir('brand')).sort()) {
+  if (/\.(svg|png|md|html|css)$/.test(name)) brandEntries.push({name:`UIDelta-brand/${name}`,data:await readFile(join('brand',name))});
+}
+const brandZip = await createStoredZip(brandEntries, date);
+await writeFile('release/UIDelta-brand-kit.zip', brandZip);
+await writeFile('site/downloads/UIDelta-brand-kit.zip', brandZip);
+await rm('_site', {recursive:true,force:true});
+await cp('site','_site',{recursive:true});
+await cp('brand','_site/brand',{recursive:true});
+const files = [[extensionName, extensionZip], ['UIDelta-brand-kit.zip',brandZip]];
+await writeFile('release/SHA256SUMS.txt', files.map(([name,bytes]) => `${createHash('sha256').update(bytes).digest('hex')}  ${name}`).join('\n')+'\n');
+console.log(`Built ${extensionName} (${extensionZip.length} bytes), brand kit and _site/`);

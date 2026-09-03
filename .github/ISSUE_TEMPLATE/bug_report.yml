@@ -1,0 +1,29 @@
+name: Bug report / 问题反馈
+description: A reproducible issue in UIDelta
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: UIDelta and Chrome versions / 版本
+      placeholder: UIDelta 0.9.4, Chrome …, macOS / Windows …
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 复现步骤
+      description: Use a public or synthetic page. Do not include private page data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior / 预期与实际
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Optional screenshot or error / 截图或报错
+      description: Remove sensitive content before uploading.

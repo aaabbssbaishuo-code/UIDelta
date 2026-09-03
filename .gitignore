@@ -1,0 +1,11 @@
+.DS_Store
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+_site/
+release/
+site/downloads/*.zip
+.qa/
+.playwright/

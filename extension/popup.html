@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UIDelta</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup-shell">
+      <header class="brand-row">
+        <div class="brand-mark" aria-hidden="true">
+          <img src="icons/icon-48.png" width="40" height="40" alt="" />
+        </div>
+        <div>
+          <p class="eyebrow">页面走查</p>
+          <h1>UIDelta</h1>
+        </div>
+        <span class="status-dot" id="statusDot" aria-label="未启用"></span>
+      </header>
+
+      <section class="control-card" aria-labelledby="modeTitle">
+        <div class="control-copy">
+          <h2 id="modeTitle">当前页面</h2>
+          <p id="modeDescription">启用后即可在当前页面进行走查。</p>
+        </div>
+        <label class="switch" for="enabledToggle">
+          <input id="enabledToggle" type="checkbox" role="switch" />
+          <span class="track"><span class="thumb"></span></span>
+          <span class="sr-only">启用 UIDelta 页面走查</span>
+        </label>
+      </section>
+
+      <section class="guide" aria-label="使用方法">
+        <div class="guide-step">
+          <span class="step-index">01</span>
+          <p><strong>开始本次走查</strong><span>问题、截图与元素定位会自动保留</span></p>
+        </div>
+        <div class="guide-step">
+          <span class="step-index">02</span>
+          <p><strong>点击元素，按 R 记录</strong><span>选中后固定</span></p>
+        </div>
+        <div class="guide-step">
+          <span class="step-index">03</span>
+          <p><strong>框选模式可记录区域</strong><span>拖拽页面区域后补充问题描述</span></p>
+        </div>
+      </section>
+
+      <footer>
+        <span>从这里启用或暂停走查</span>
+        <kbd>⌥ ⇧ I</kbd>
+      </footer>
+      <p id="message" class="message" role="status"></p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

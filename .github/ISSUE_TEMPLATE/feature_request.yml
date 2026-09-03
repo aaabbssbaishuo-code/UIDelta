@@ -1,0 +1,16 @@
+name: Feature request / 功能建议
+description: Describe a design-review problem you want to solve
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is difficult in your review workflow? / 走查中的具体困难
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What would a better outcome look like? / 希望达到什么效果
+    validations:
+      required: true

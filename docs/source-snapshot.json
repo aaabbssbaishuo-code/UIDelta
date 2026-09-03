@@ -1,0 +1,21 @@
+{
+  "version": "0.9.4",
+  "snapshotDate": "2026-09-03",
+  "source": "Existing UIDelta development source, copied before open-source packaging",
+  "sha256": {
+    "content.js": "92ce6e536b391abcaef957feedebd86d576dfe85ec0fc6dbd522d1eacf8f1433",
+    "service-worker.js": "937b28641aca62b3981cb53f5b758aca71cafcde61ba25405263e54b5ed9ee9a",
+    "compare-engine.js": "6a5f1c9484060623801caa58e89802f302d5c024beba7ec8ec3264bd97f722ea",
+    "zip-store.js": "0b19437a0ff6cb30b22a31b62be4218678d7c00ea89bee7326454fd86387a6d4",
+    "popup.html": "579001eb00cddcda00b7417b40125932ba35d3a17c31708ebc658be1e56b5b3a",
+    "popup.css": "a1b567f46c887be094665271a80ab24468b910b9c0f9de2fd820892201cdb563",
+    "popup.js": "bb49485e315a8baf13f587bf1f2a03a8f6641021389435049b68c064b558aa05",
+    "manifest.json": "eb1ad0f0284613c3920a525812ff0e9896eb9ced761a1998a322cbf8f74618c5",
+    "phase1-contract.test.mjs": "f10fdad65d55e45aec23c40634136da49a54d23fd2290f79420239d4fbe41a63",
+    "editor-behavior.test.mjs": "f9768a7fb7eae6f3c0d503a5a40b8bf90eb24d01e3e58a13fd3c435dc0c5d141",
+    "layer-properties.test.mjs": "6811c590ee4c532e73e5dffd4fbd294aeebed9be4878343adb6bea00fa6103f2",
+    "record-workflow.test.mjs": "ce17e4741e6c40da968be49639724e768532950acad1bdcd5ff052ccc4eb35a5",
+    "test-harness.html": "a32832c2b0dec3b3eae19d267a9760be6a31d6d3aa6db5e17bcfa74a8c9bc384",
+    "PHASE1_QA.md": "3f407414d29c1f0421e95677095bfed0bea8f8f509b4da37f62ea86375bc465f"
+  }
+}

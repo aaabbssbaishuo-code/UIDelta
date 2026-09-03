@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#F8F8F4">
+  <title>UIDelta — 让每一处 UI 偏差，都有据可查</title>
+  <meta name="description" content="为 UI 设计师打造的开源浏览器走查工具。测量尺寸与间距，原位记录问题，自动保留截图和元素定位，导出一份能交付的走查报告。">
+  <meta property="og:title" content="UIDelta — 每一处偏差，都有据可查。">
+  <meta property="og:description" content="测量、记录、交付。把 UI 走查留在真实页面里。免费开源 · 本地运行">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://aaabbssbaishuo-code.github.io/UIDelta/assets/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <header class="site-header wrap">
+    <a class="brand" href="./" aria-label="UIDelta 首页"><img src="assets/icon.svg" width="32" height="32" alt=""><span>UIDelta<span class="brand-dot">.</span></span></a>
+    <nav aria-label="主导航"><a href="#workflow">工作流</a><a href="#features">功能</a><a href="#install">安装</a></nav>
+    <a class="github-link" href="https://github.com/aaabbssbaishuo-code/UIDelta" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.86c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.76c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>GitHub<span aria-hidden="true">↗</span></a>
+  </header>
+  <main id="main">
+    <section class="hero wrap">
+      <a class="release-pill" href="#install"><span class="live-dot"></span> 为 UI 设计师打造的开源走查工具 <span class="pill-version">v0.9.4 ↗</span></a>
+      <h1>每一处偏差，<br>都<span class="highlight">有据可查<svg viewBox="0 0 500 16" preserveAspectRatio="none" aria-hidden="true"><path d="M4 12Q240 0 496 9"/></svg></span>。</h1>
+      <p class="hero-description">直接在真实网页上测量、记录、取证。<br>把一句「这里不对」，变成一份开发看得懂的走查报告。</p>
+      <div class="hero-actions"><a class="button primary" href="#install"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5"/></svg>免费下载插件<span class="button-arrow">↗</span></a><a class="button secondary" href="#demo">体验走查流程 <span aria-hidden="true">↓</span></a></div>
+      <div class="hero-notes"><span>免费开源</span><i></i><span>无需账号</span><i></i><span>数据保存在本地</span></div>
+    </section>
+
+    <section class="demo-section wrap" id="demo" aria-labelledby="demo-title">
+      <div class="demo-topline"><span id="demo-title"><span class="tiny-cross">✳</span> 从发现，到交付，一气呵成。</span><span class="mono">INTERACTIVE DEMO / 交互示意</span></div>
+      <div class="demo-shell">
+        <div class="browser-bar"><div class="window-dots"><i></i><i></i><i></i></div><div class="address"><span aria-hidden="true">▣</span> orbit.example / workspace</div><span class="browser-logo"><img src="assets/mark.svg" alt="" width="20" height="20"> UIDelta</span></div>
+        <div class="demo-workspace">
+          <aside class="sample-sidebar" aria-label="示例产品侧栏"><div class="orbit-brand"><span>◒</span> Orbit</div><div class="sample-workspace">设计工作空间 <span>⌄</span></div><div class="sidebar-active"><span>▦</span> 项目概览</div><div><span>☷</span> 我的任务</div><div><span>▱</span> 设计资源</div><div class="sidebar-bottom"><span class="avatar">L</span><span>Lin<br><small>个人工作空间</small></span></div></aside>
+          <div class="sample-main">
+            <div class="sample-breadcrumb">工作空间 <span>/</span> 项目概览</div>
+            <div class="sample-heading"><div><span class="sample-eyebrow">WORKSPACE</span><h2>让好设计，开始发生。</h2><p>所有灵感与项目，都在这里。</p></div><div class="sample-create">＋ 新建项目</div></div>
+            <div class="sample-tabs"><span>全部项目 <b>03</b></span><span>最近访问</span><span>已归档</span><span class="view-icon">⊞</span></div>
+            <div class="sample-cards">
+              <button class="sample-card selected" id="sample-card" type="button" aria-label="选择示例项目卡片进行测量"><span class="dimension-label" id="dimension-label">240 × 208</span><span class="selection-corner tl"></span><span class="selection-corner tr"></span><span class="selection-corner bl"></span><span class="selection-corner br"></span><span class="sample-art art-one"><span class="art-ring"></span><span class="art-square"></span></span><span class="card-name">品牌设计系统 <span>↗</span></span><span class="card-info">更新于今天 <span class="mini-avatars">J <b>L</b></span></span><span class="measure-gap"><span>24</span></span></button>
+              <div class="sample-card"><div class="sample-art art-two"><span></span><span></span><span></span></div><div class="card-name">产品体验升级 <span>↗</span></div><div class="card-info">更新于昨天 <span class="mini-avatars">M <b>Y</b></span></div></div>
+              <div class="sample-card last-card"><div class="sample-art art-three"><i></i><i></i><i></i><i></i></div><div class="card-name">下一次灵感 <span>↗</span></div><div class="card-info">更新于 2 天前</div></div>
+            </div>
+            <div class="demo-helper" id="demo-helper"><span class="cursor-symbol">↖</span> 点击卡片查看尺寸，切换下方步骤体验完整流程。</div>
+          </div>
+          <aside class="inspector" aria-label="UIDelta 交互演示面板">
+            <div class="inspector-heading"><img src="assets/mark.svg" width="20" height="20" alt=""><strong>UIDelta</strong><span class="demo-badge">演示</span><span class="panel-more">···</span></div>
+            <div class="panel-tabs" aria-label="演示步骤"><button type="button" class="active" data-mode="inspect" aria-pressed="true">测量</button><button type="button" data-mode="record" aria-pressed="false">记录</button><button type="button" data-mode="deliver" aria-pressed="false">交付</button></div>
+            <div id="panel-inspect" class="panel-content"><div class="selected-element"><span>▣</span><div><strong>项目卡片</strong><small>.project-card</small></div><span class="selected-dot"></span></div><div class="property-title">尺寸与布局 <span>⌘</span></div><div class="property-grid"><div><span>W</span><b id="prop-width">240</b></div><div><span>H</span><b id="prop-height">208</b></div><div><span>圆角</span><b>12</b></div><div><span>间距</span><b>24</b></div></div><div class="property-title">样式</div><div class="property-row"><span>填充</span><span><i class="color-swatch"></i> #FFFFFF</span></div><div class="property-row"><span>字体</span><span>16 px / Medium</span></div><div class="measure-note"><kbd>⌥</kbd><span>按住 Option / Alt<br><small>在插件中查看元素间距</small></span></div><button class="panel-primary" type="button" data-mode="record">＋ 记录这个问题 <kbd>R</kbd></button></div>
+            <div id="panel-record" class="panel-content" hidden><div class="record-meta"><span>UI-001</span><span>UI 问题 · 重要</span></div><label class="field-label" for="issue-description">问题描述</label><textarea id="issue-description" rows="3" maxlength="500">卡片间距为 24px，请调整为设计稿中的 16px。</textarea><div class="property-title">页面证据 <span class="evidence-ready">✓ 已就绪</span></div><div class="evidence-row"><div><span class="mini-page"><i></i><i></i><i></i></span><small>页面全景</small></div><div><span class="mini-detail"><i></i></span><small>元素细节</small></div></div><p class="panel-note">插件会自动保留截图、元素定位和测量信息。</p><button type="button" class="panel-primary" id="save-issue">保存问题 <span>↵</span></button></div>
+            <div id="panel-deliver" class="panel-content" hidden><div class="delivery-heading"><span class="success-circle">✓</span><strong>交给开发，信息齐全。</strong><p id="saved-description">卡片间距为 24px，请调整为设计稿中的 16px。</p></div><div class="file-list"><div><span class="file-type">MD</span><span>report.md<small>可阅读的问题清单</small></span></div><div><span class="file-type">{ }</span><span>issues.json<small>可交给工具处理的结构化数据</small></span></div><div><span class="file-type">PNG</span><span>assets/<small>对应问题的截图证据</small></span></div></div><button type="button" class="panel-primary" id="download-demo">下载示例记录 <span>↓</span></button><p class="panel-note align-center">示例下载为 Markdown 文件</p></div>
+          </aside>
+        </div>
+        <div class="demo-stepbar"><button type="button" class="active" data-mode="inspect" aria-pressed="true"><span>01</span><strong>看清实现</strong><small>尺寸、间距、样式</small></button><button type="button" data-mode="record" aria-pressed="false"><span>02</span><strong>留住问题</strong><small>描述与证据一起保存</small></button><button type="button" data-mode="deliver" aria-pressed="false"><span>03</span><strong>清楚交付</strong><small>把报告交给开发</small></button></div>
+      </div>
+      <p class="demo-caption">以上为简化交互示意，使用虚构页面与示例数据。安装插件后可在真实网页中走查。</p>
+    </section>
+
+    <section class="workflow wrap section" id="workflow"><div class="section-intro"><span class="eyebrow">A BETTER REVIEW LOOP</span><h2>少一些来回截图，<br>多一点设计落地。</h2><p>发现问题之后，最费时间的往往是解释问题。<br>UIDelta 把散落的尺寸、描述、截图和位置，放回同一条记录。</p></div><div class="workflow-list"><article><span class="step-number">01 /</span><div><h3>在页面上，看清实现</h3><p>点选元素查看尺寸和样式，按住 Option / Alt 测量间距。在本地试改颜色、字号或间距，确认你想要的效果。</p></div><span class="workflow-symbol">↖</span></article><article><span class="step-number">02 /</span><div><h3>记录时，证据已经在场</h3><p>按 R 写下问题。页面全景、元素细节和定位信息随记录保存，框选模式也能记录一整片区域。</p></div><span class="workflow-symbol">⊞</span></article><article><span class="step-number">03 /</span><div><h3>交付时，信息不用重组</h3><p>导出 HTML 报告、Excel 表格或包含 Markdown、JSON 和截图的 ZIP，接上你现有的协作流程。</p></div><span class="workflow-symbol">↗</span></article></div></section>
+
+    <section class="features-section" id="features"><div class="wrap section"><div class="section-heading"><div><span class="eyebrow">BUILT FOR THE DETAILS</span><h2>小偏差，也值得被认真对待。</h2></div><p>从一个像素，到一次完整交付。</p></div><div class="feature-grid"><article class="feature featured"><div class="feature-visual"><span class="measure-box">Button<span>128 × 40</span></span><div class="visual-measure"><span>16 px</span></div><span class="measure-box ghost-box">Button</span></div><span class="feature-index">01 — INSPECT</span><h3>像在设计工具里一样测量</h3><p>宽高、字号、颜色与盒模型。选择元素，查看实际实现；按住快捷键，测出元素之间的距离。</p></article><article class="feature"><div class="feature-visual compare-visual"><div><small>设计值</small><strong>16<span>px</span></strong></div><span class="delta-symbol">Δ</span><div><small>实际值</small><strong>24<span>px</span></strong></div><span class="delta-value">+8</span></div><span class="feature-index">02 — COMPARE</span><h3>差异，说出具体数值</h3><p>导入 Figma Frame 的 JSON 快照，在本地比较期望值与实际值，并保留匹配置信度。</p><span class="feature-footnote">当前需手动导入 JSON 快照</span></article><article class="feature"><div class="feature-visual issue-visual"><div class="mini-issue"><span>UI-001 <b>重要</b></span><strong>卡片间距与设计稿不一致</strong><small><i></i> 截图 · 元素定位 · 样式</small></div></div><span class="feature-index">03 — CAPTURE</span><h3>每条问题，都有上下文</h3><p>页面编号标注、截图预览、问题检索与定位，让开发知道问题是什么，也知道问题在哪里。</p></article><article class="feature"><div class="feature-visual file-visual"><span>HTML</span><span>XLSX</span><span>ZIP</span></div><span class="feature-index">04 — DELIVER</span><h3>按团队的方式交付</h3><p>报告供人阅读，结构化记录供工具处理。无需另建团队账号，也可以继续使用现有项目管理平台。</p></article></div></div></section>
+
+    <section class="privacy-strip wrap"><div class="privacy-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/></svg></div><div><h3>你的页面，留在你的浏览器。</h3><p>走查记录与截图保存在本地。无需账号、无需 API Key，当前版本不向外部服务器发送数据。</p></div><a href="privacy.html">了解权限与数据 <span>↗</span></a></section>
+
+    <section class="install-section wrap section" id="install"><div class="install-copy"><span class="eyebrow">READY WHEN YOU ARE</span><h2>下一次走查，<br>带上 UIDelta。</h2><p>当前以开发者预览版发布。下载后加载到 Chrome，打开正在走查的网页，就可以开始。</p><a class="button primary" href="downloads/UIDelta-v0.9.4.zip" download>下载 UIDelta <span>↓</span></a><span class="install-meta">v0.9.4 · Chrome Manifest V3 · MIT License</span><a class="text-link" href="https://github.com/aaabbssbaishuo-code/UIDelta" target="_blank" rel="noopener noreferrer">查看源码与完整文档 ↗</a></div><ol class="install-steps"><li><span>1</span><div><h3>下载并解压</h3><p>解压插件 ZIP，找到里面包含 <code>manifest.json</code> 的文件夹。</p></div></li><li><span>2</span><div><h3>加载到 Chrome</h3><p>打开扩展管理页，开启「开发者模式」，点击「加载已解压的扩展程序」。</p><button type="button" class="copy-address" id="copy-address"><code>chrome://extensions</code><span>复制地址</span></button></div></li><li><span>3</span><div><h3>固定插件，开始走查</h3><p>固定 UIDelta 到工具栏，刷新目标网页，点击图标或按 <kbd>Alt / ⌥</kbd> + <kbd>Shift</kbd> + <kbd>I</kbd> 唤起。</p></div></li></ol></section>
+
+    <section class="faq wrap section"><div><span class="eyebrow">GOOD TO KNOW</span><h2>开始前，你可能想知道。</h2></div><div class="faq-items"><details><summary>现在支持自动 AI 走查吗？<span>＋</span></summary><p>当前版本提供手动走查、本地样式试改和基于 JSON 快照的确定性设计对比。AI 自动走查、在线 Figma 同步和项目管理平台直连仍在规划中。</p></details><details><summary>能直接修改网页源码吗？<span>＋</span></summary><p>本地试改只影响当前页面预览，可撤销，也可通过刷新页面恢复。UIDelta 不会修改网站源代码，修改意图可以随问题交付给开发。</p></details><details><summary>为什么安装时需要访问网页的权限？<span>＋</span></summary><p>插件需要读取页面元素才能测量、定位和截图；广泛的网页权限支持页面唤起及跨页走查。当前版本不上传页面数据。请在隐私说明中查看完整权限用途。</p></details><details><summary>哪些页面暂时不能走查？<span>＋</span></summary><p>Chrome 内部页面和扩展商店等受保护页面无法注入。跨域 iframe、封闭 Shadow DOM 与 Canvas 内部对象不能独立选择。本地文件需要在扩展详情中开启「允许访问文件网址」。</p></details><details><summary>可以免费使用或参与开发吗？<span>＋</span></summary><p>可以。项目采用 MIT 许可证，欢迎试用、提交问题和贡献代码。当前为开发者预览版，还在持续完善。</p></details></div></section>
+    <section class="closing wrap"><img src="assets/mark.svg" width="52" height="52" alt=""><h2>让好设计，经得起走查。</h2><a href="https://github.com/aaabbssbaishuo-code/UIDelta" target="_blank" rel="noopener noreferrer">在 GitHub 上一起完善 UIDelta <span>↗</span></a></section>
+  </main>
+  <footer class="site-footer wrap"><a class="brand" href="./"><img src="assets/icon.svg" width="25" height="25" alt=""><span>UIDelta.</span></a><p>Made for designers who care about the details.</p><div><a href="privacy.html">隐私</a><a href="brand.html">品牌素材</a><a href="https://github.com/aaabbssbaishuo-code/UIDelta/blob/main/LICENSE">MIT License ↗</a></div><span>© 2026 UIDelta</span></footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

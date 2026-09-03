@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UIDelta 本地测试页</title>
+    <style>
+      :root { color-scheme: light; --canvas:#f5f7fb; --surface:#fff; --inset:#eef2f7; --border:#d7deea; --border-strong:#b9c4d6; --text:#1a2638; --text-secondary:#617087; --text-muted:#7d8ca1; --accent:#5268d8; --accent-hover:#4157c5; --accent-soft:#edf0ff; --success:#287e57; font-family: Inter, "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin:0; background:var(--canvas); color:var(--text); font-size:14px; line-height:1.5; }
+      header { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; padding:0 clamp(16px,4vw,32px); border-bottom:1px solid var(--border); background:rgba(255,255,255,.94); box-shadow:0 4px 16px rgba(23,39,70,.05); backdrop-filter:blur(12px); }
+      header strong { font-size:16px; font-weight:700; letter-spacing:-.02em; }
+      #launch { min-height:36px; padding:0 14px; border:1px solid #465ac7; border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; font:600 13px/1 inherit; transition:background .16s ease,transform .12s ease; }
+      #launch:hover { background:var(--accent-hover); } #launch:active { transform:translateY(1px); }
+      main { width:min(1040px,calc(100% - 32px)); margin:0 auto; padding:clamp(40px,8vw,72px) 0 96px; }
+      .hero { max-width:60ch; }
+      .eyebrow { margin:0 0 8px; color:var(--accent); font-size:11px; font-weight:700; letter-spacing:.07em; }
+      h1 { margin:0; font-size:clamp(28px,5vw,40px); line-height:1.14; letter-spacing:-.035em; }
+      .lead { margin:14px 0 0; color:var(--text-secondary); font-size:15px; line-height:1.6; }
+      .actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:20px; }
+      .primary,.secondary { min-height:36px; padding:0 14px; border-radius:8px; cursor:pointer; font:600 13px/1 inherit; }
+      .primary { border:1px solid #465ac7; background:var(--accent); color:#fff; box-shadow:0 4px 12px rgba(58,75,168,.18); }
+      .secondary { border:1px solid var(--border-strong); background:var(--surface); color:var(--text); }
+      .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr)); gap:12px; margin-top:48px; }
+      .card { padding:18px; border:1px solid var(--border); border-radius:12px; background:var(--surface); box-shadow:0 6px 18px rgba(24,42,76,.04); }
+      .card-icon { display:grid; width:30px; height:30px; place-items:center; border-radius:8px; background:var(--accent-soft); color:var(--accent); font-size:11px; font-weight:700; }
+      .card h2 { margin:18px 0 5px; font-size:16px; line-height:1.3; }
+      .card p { margin:0; color:var(--text-secondary); font-size:13px; line-height:1.55; }
+      .table { margin-top:48px; overflow:hidden; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
+      .row { display:grid; grid-template-columns:1.2fr 1fr 110px; gap:16px; align-items:center; min-height:56px; padding:0 16px; border-bottom:1px solid var(--border); }
+      .row:last-child { border-bottom:0; }
+      .status { justify-self:start; padding:4px 7px; border-radius:6px; background:#e9f7ef; color:var(--success); font-size:11px; font-weight:700; }
+      input { min-height:32px; padding:0 8px; border:1px solid var(--border-strong); border-radius:7px; color:var(--text); font:inherit; } input:focus-visible,.primary:focus-visible,.secondary:focus-visible,#launch:focus-visible { outline:3px solid rgba(82,104,216,.25); outline-offset:2px; }
+      @media (max-width:640px) { header{padding:0 16px} main{width:min(100% - 24px,1040px);padding-top:36px}.row{grid-template-columns:1fr 90px}.row span:nth-child(2){display:none} }
+      @media (prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none!important; } }
+    </style>
+    <script>
+      (() => {
+        const state = { session: null, issues: [], assets: new Map(), listeners: [] };
+        const tinyPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lTP3WQAAAABJRU5ErkJggg==";
+        window.chrome = {
+          runtime: {
+            onMessage: { addListener(listener) { state.listeners.push(listener); } },
+            async sendMessage(message) {
+              if (message.type === "UIDELTA_GET_STATE") return { ok:true, session:state.session, activeSession:state.session?.status === "active" ? state.session : null, issues:[...state.issues] };
+              if (message.type === "UIDELTA_PUT_SESSION") { state.session = { ...structuredClone(message.session), revision:(state.session?.revision || 0) + 1 }; return { ok:true, session:state.session }; }
+              if (message.type === "UIDELTA_SET_SESSION_STATUS") { state.session = { ...state.session, status:message.status, revision:(state.session?.revision || 0) + 1 }; return { ok:true, session:state.session }; }
+              if (message.type === "UIDELTA_PUT_DESIGN") { state.session = { ...state.session, figmaBinding:message.design?.binding || null, designSnapshot:message.design?.snapshot || null, designSnapshotVersion:message.design?.snapshot ? 2 : null, revision:(state.session?.revision || 0) + 1 }; return { ok:true, session:state.session }; }
+              if (message.type === "UIDELTA_TOUCH_PAGE") { state.session = { ...state.session, revision:(state.session?.revision || 0) + 1 }; return { ok:true, session:state.session }; }
+              if (message.type === "UIDELTA_RESERVE_ISSUE") { const sequence = state.session?.nextIssueNumber || 1; state.session = { ...state.session, nextIssueNumber:sequence + 1, revision:(state.session?.revision || 0) + 1 }; return { ok:true, sequence, session:state.session }; }
+              if (message.type === "UIDELTA_PUT_ISSUE") { const prefix = message.issue.type === "functional" ? "FN" : message.issue.type === "content" ? "CT" : "UI"; const saved = { ...structuredClone(message.issue), displayId:`${prefix}-${String(message.issue.sequence).padStart(3,"0")}`, revision:(message.issue.revision || 0) + 1 }; const index = state.issues.findIndex((item) => item.id === saved.id); if (index >= 0) state.issues[index] = saved; else state.issues.push(saved); state.session = { ...state.session, revision:(state.session?.revision || 0) + 1 }; return { ok:true, issue:saved, session:state.session }; }
+              if (message.type === "UIDELTA_DELETE_ISSUE") { state.issues = state.issues.filter((item) => item.id !== message.issueId); return { ok:true }; }
+              if (message.type === "UIDELTA_CAPTURE_EVIDENCE") { const contextAssetId = message.issueId + ":context"; const detailAssetId = message.issueId + ":detail"; state.assets.set(contextAssetId,tinyPng); state.assets.set(detailAssetId,tinyPng); return { ok:true, contextAssetId, detailAssetId }; }
+              if (message.type === "UIDELTA_GET_ASSET") return { ok:true, dataUrl:state.assets.get(message.assetId) || tinyPng };
+              if (message.type === "UIDELTA_DELETE_ASSETS") { for (const id of message.assetIds || []) state.assets.delete(id); return { ok:true }; }
+              if (message.type === "UIDELTA_EXPORT_SESSION") return { ok:true, filename:"UIDelta-Test.zip", downloadPath:"测试页模拟导出（未生成真实文件）" };
+              if (message.type === "UIDELTA_FINALIZE_SESSION") { state.session = null; return { ok:true, filename:"UIDelta-Test.zip", downloadPath:"测试页模拟导出（未生成真实文件）" }; }
+              if (message.type === "SYNC_TAB_STATE") return { ok:true, enabled:message.enabled };
+              return { ok:true };
+            }
+          }
+        };
+      })();
+    </script>
+  </head>
+  <body>
+    <header>
+      <strong>UIDelta 测试工作区</strong>
+      <button id="launch" type="button">启动 UIDelta</button>
+    </header>
+    <main>
+      <section class="hero">
+        <p class="eyebrow">UIDelta · 本地测试</p>
+        <h1>把设计走查留在真实页面里。</h1>
+      <p class="lead">用于验证元素选择、记录与本地试改。</p>
+        <div class="actions"><button class="primary" data-testid="create-project">创建项目</button><button class="secondary" aria-label="查看文档">查看文档</button></div>
+        <div class="actions"><span id="invite-label">邀请成员</span><button class="secondary" aria-labelledby="invite-label">打开邀请</button><label>项目名称 <input value="UIDelta" /></label></div>
+      </section>
+      <section class="cards">
+        <article class="card"><span class="card-icon">01</span><h2>快速记录</h2><p>选择元素，写一句话，证据由系统完成。</p></article>
+        <article class="card"><span class="card-icon">02</span><h2>页面定位</h2><p>保存选择器、角色、文本和元素边界。</p></article>
+        <article class="card"><span class="card-icon">03</span><h2>统一交付</h2><p>一次导出 Markdown、JSON 与截图。</p></article>
+      </section>
+      <section class="table" aria-label="项目列表">
+        <div class="row"><strong>设计系统</strong><span>今天 10:32</span><span class="status">进行中</span></div>
+        <div class="row"><strong>移动端改版</strong><span>昨天 18:06</span><span class="status">已通过</span></div>
+        <div class="row"><strong>走查流程</strong><span>8 月 26 日</span><span class="status">进行中</span></div>
+      </section>
+    </main>
+    <script src="./compare-engine.js"></script>
+    <script src="./content.js"></script>
+    <script>
+      document.getElementById("launch").addEventListener("click", () => {
+        window.postMessage({ source:"uidelta-bookmark", type:"UIDELTA_TOGGLE", requestId:"harness-" + Date.now() }, "*");
+      });
+    </script>
+  </body>
+</html>
