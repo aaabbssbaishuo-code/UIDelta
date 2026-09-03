@@ -22,7 +22,7 @@
     $('#demo-helper').textContent = {
       inspect: '↖ 点击卡片查看尺寸，切换下方步骤体验完整流程。',
       record: '＋ 描述问题，截图和定位随记录一起保留。',
-      deliver: '✓ 从一处偏差，到一条可以交付的记录。'
+      deliver: '✓ HTML 跟进、XLSX 排期，ZIP 交给前端与 Agent。'
     }[mode];
   }
   document.querySelectorAll('[data-mode]').forEach((button) => button.addEventListener('click', () => setMode(button.dataset.mode)));
@@ -61,6 +61,22 @@
     } catch {
       $('#copy-address span').textContent = '请选中左侧地址复制';
       notify('请手动复制：chrome://extensions');
+    }
+  });
+  $('#copy-agent-prompt').addEventListener('click', async () => {
+    const prompt = $('#agent-prompt-text');
+    try {
+      await navigator.clipboard.writeText(prompt.textContent.trim());
+      notify('提示词已复制，请将走查 ZIP 一起交给 Agent');
+    } catch {
+      $('#agent-prompt-details').open = true;
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(prompt);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      prompt.scrollIntoView({ block: 'center' });
+      notify('请复制已选中的提示词，并附上走查 ZIP');
     }
   });
 })();
