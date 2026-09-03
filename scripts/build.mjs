@@ -21,12 +21,22 @@ const brandEntries = [];
 for (const name of (await readdir('brand')).sort()) {
   if (/\.(svg|png|md|html|css)$/.test(name)) brandEntries.push({name:`UIDelta-brand/${name}`,data:await readFile(join('brand',name))});
 }
+brandEntries.push({name:'UIDelta-brand/LICENSE',data:await readFile('LICENSE')});
 const brandZip = await createStoredZip(brandEntries, date);
 await writeFile('release/UIDelta-brand-kit.zip', brandZip);
 await writeFile('site/downloads/UIDelta-brand-kit.zip', brandZip);
+const campaignNames = ['cover-16x9','feature-inspect-16x9','feature-delivery-16x9'];
+const campaignFiles = [...campaignNames.flatMap(name => [name+'.png',name+'.html']), 'campaign-16x9.css','icon.svg','mark.svg'];
+const campaignEntries = await Promise.all(campaignFiles.map(async name => ({name:`UIDelta-promo-16x9/${name}`,data:await readFile(join('brand',name))})));
+campaignEntries.push({name:'UIDelta-promo-16x9/README.md',data:await readFile('brand/CAMPAIGN-README.md')});
+campaignEntries.push({name:'UIDelta-promo-16x9/AGENT-HANDOFF.md',data:await readFile('docs/AGENT-HANDOFF.md')});
+campaignEntries.push({name:'UIDelta-promo-16x9/LICENSE',data:await readFile('LICENSE')});
+const campaignZip = await createStoredZip(campaignEntries,date);
+await writeFile('release/UIDelta-promo-16x9.zip',campaignZip);
+await writeFile('site/downloads/UIDelta-promo-16x9.zip',campaignZip);
 await rm('_site', {recursive:true,force:true});
 await cp('site','_site',{recursive:true});
 await cp('brand','_site/brand',{recursive:true});
-const files = [[extensionName, extensionZip], ['UIDelta-brand-kit.zip',brandZip]];
+const files = [[extensionName, extensionZip], ['UIDelta-brand-kit.zip',brandZip], ['UIDelta-promo-16x9.zip',campaignZip]];
 await writeFile('release/SHA256SUMS.txt', files.map(([name,bytes]) => `${createHash('sha256').update(bytes).digest('hex')}  ${name}`).join('\n')+'\n');
 console.log(`Built ${extensionName} (${extensionZip.length} bytes), brand kit and _site/`);

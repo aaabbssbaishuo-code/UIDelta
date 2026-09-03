@@ -2,7 +2,7 @@
 
 **每一处偏差，都有据可查。 / Every UI difference deserves clear evidence.**
 
-The mark combines the delta symbol (a difference) with an angular cursor. An open lower edge leaves a visible offset: the product's job is to make differences explicit.
+The mark combines a selected region, three square anchor handles and an annotation note. The note's lower tail links the observation back to the page. It is intended to read as “select and annotate” at a glance.
 
 ## Assets
 
@@ -14,6 +14,12 @@ The mark combines the delta symbol (a difference) with an angular cursor. An ope
 - `social-card.png`: 1280×640 share graphic
 - `launch-poster.png`: 1080×1440 Chinese launch poster
 - `social-card.html`, `launch-poster.html`: editable sources for the graphics
+- `cover-16x9.png`: 1920×1080 product cover
+- `feature-inspect-16x9.png`: 1920×1080 measurement, recording and evidence page
+- `feature-delivery-16x9.png`: 1920×1080 HTML/XLSX/ZIP and Agent handoff page
+- Matching `*-16x9.html` files and `campaign-16x9.css`: editable campaign sources
+
+The three 16:9 graphics share the updated annotation identity. The delivery visual follows the product's three output routes and shows an illustrative Agent workflow. It requires project source and a runtime; the graphic does not claim that the ZIP alone can automatically fix a website.
 
 The browser extension contains 16, 32, 48 and 128px PNG icons under `extension/icons/`. All PNGs were rendered from project-owned vector or HTML sources; no stock photography or remote font dependency is used.
 

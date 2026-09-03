@@ -49,6 +49,8 @@ From source, load the repository's **`extension/`** folder directly. No build or
 
 See [installation details](docs/INSTALL.md) and [design snapshot guidance](docs/DESIGN-COMPARE.md).
 
+For source-aware coding agents, see the [Agent handoff guide](docs/AGENT-HANDOFF.md). The ZIP provides review context; the agent also needs the project's source, runtime and permission to make changes. [Brand and 16:9 campaign assets](brand/README.md) are available for sharing the project.
+
 ## Development
 
 Node.js 22+ is required for scripts and tests. There are **no npm dependencies**.

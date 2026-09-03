@@ -8,7 +8,8 @@ UIDelta 是为 UI 设计师打造的浏览器走查工具。直接在真实页�
 
 - **UIDelta-v0.9.4.zip**：可安装插件。解压后在 `chrome://extensions` 开启开发者模式，加载其中的 `UIDelta` 文件夹。
 - **UIDelta-brand-kit.zip**：Logo、插件图标、1280×640 宣传图、1080×1440 海报及可编辑源文件。
-- **SHA256SUMS.txt**：两个 ZIP 的 SHA-256 校验值。
+- **UIDelta-promo-16x9.zip**：1920×1080 产品封面与两张功能宣传页，附可编辑源文件和 Agent 交接提示词。
+- **SHA256SUMS.txt**：三个 ZIP 的 SHA-256 校验值。
 
 ## 当前能力
 

@@ -47,4 +47,11 @@ Feedback from designers who do implementation reviews is especially welcome.
 - GitHub social preview：`brand/social-card.png`（1280×640）
 - 社交平台竖版：`brand/launch-poster.png`（1080×1440）
 - 产品介绍：`site/assets/product-preview.png`
+- 16:9 产品封面：`brand/cover-16x9.png`（1920×1080）
+- 16:9 测量 / 记录 / 取证：`brand/feature-inspect-16x9.png`（1920×1080）
+- 16:9 前端与 Agent 交付：`brand/feature-delivery-16x9.png`（1920×1080）
 - 所有示例均使用虚构项目和页面。
+
+## Agent 交付短文案
+
+走查完，把问题打包交付。HTML 用于团队查看，XLSX 用于排期；ZIP 带上问题描述、页面、元素锚点和截图，交给具备项目源码的 Agent，依据证据定位问题、修改并复核。

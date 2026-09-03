@@ -76,4 +76,6 @@ npm start
 
 欢迎 [提交问题](https://github.com/aaabbssbaishuo-code/UIDelta/issues) 或贡献代码。参阅 [贡献指南](CONTRIBUTING.md)、[路线图](ROADMAP.md) 和 [品牌素材](brand/README.md)。
 
+想把 ZIP 交给编码 Agent？参阅 [Agent 交接说明与可复制提示词](docs/AGENT-HANDOFF.md)。需要结合项目源码、运行环境和修改授权来定位、修改并复核。宣传素材包含三张 1920×1080 产品与功能页。
+
 作者：[白土墩 / aaabbssbaishuo-code](https://github.com/aaabbssbaishuo-code) · [MIT License](LICENSE)

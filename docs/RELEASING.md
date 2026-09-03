@@ -8,7 +8,7 @@ npm test
 npm run build
 ```
 
-Build outputs: `release/UIDelta-v0.9.4.zip`, `release/UIDelta-brand-kit.zip`, `release/SHA256SUMS.txt`, `_site/`.
+Build outputs: `release/UIDelta-v0.9.4.zip`, `release/UIDelta-brand-kit.zip`, `release/UIDelta-promo-16x9.zip`, `release/SHA256SUMS.txt`, `_site/`.
 
 The extension archive contains a single `UIDelta/` directory with its manifest at the top level. Site downloads use the same bytes. The build uses the repository's own stored-ZIP implementation and has no dependency installation step.
 

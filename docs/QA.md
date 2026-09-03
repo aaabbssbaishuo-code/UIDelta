@@ -4,7 +4,7 @@
 
 Run `npm run check`, `npm test` and `npm run build` before publishing.
 
-The inherited suites cover 10 editor behaviors, 9 layer-property behaviors, 22 recording regressions and 6 contract groups. Node's test runner reports 25 top-level test entries because some suites aggregate their assertions. Contract tests include source-level checks and VM-based functions; they do not substitute for full browser integration.
+The inherited suites cover editor behaviors, layer properties, recording regressions and message/export contracts. Some suites aggregate their assertions, so Node's top-level test count differs from the number of named checks. Contract tests include source-level checks and VM-based functions; they do not substitute for full browser integration.
 
 Packaging includes only extension runtime files, icons, license and installation instructions. Tests and mocked harnesses are excluded from the downloadable extension. SHA-256 checksums are generated alongside releases.
 
