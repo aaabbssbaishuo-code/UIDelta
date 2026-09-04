@@ -1,67 +1,79 @@
-<p align="center"><img src="brand/icon-256.png" width="80" alt="UIDelta logo"></p>
 <h1 align="center">UIDelta</h1>
-<p align="center"><strong>Every UI difference deserves clear evidence.</strong><br>Open-source UI inspection, issue capture and handoff for designers.</p>
-<p align="center"><a href="README.zh-CN.md">简体中文</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/">Website & interactive demo</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip">Downloads</a> · <a href="LICENSE">MIT License</a></p>
+<p align="center"><strong>看见问题。说清怎么改。</strong></p>
+<p align="center"><a href="README.en.md">English</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/">产品官网</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip">免费下载</a> · <a href="LICENSE">MIT 开源</a></p>
 
-![UIDelta current UI — fictional project](brand/cover-16x9.png)
+![UIDelta：看见问题。说清怎么改。](brand/cover-16x9.png)
 
-UIDelta turns “this doesn't match the design” into a review issue with measurements, screenshots and an element anchor. Inspect the real page, record what needs to change, and export the evidence for your existing workflow.
+把一句「这里不对」，变成一份开发看得懂的走查报告。
 
-**Status: v0.9.4 developer preview.** Install as an unpacked Chrome extension. Not yet distributed through the Chrome Web Store. The extension panels above are rendered from the current product source, using fictional project data.
+**UIDelta 是一个开源网页走查工具。** 在真实网页上测量、记录、取证，把修改依据一起交给前端和 Agent。
 
-## From review to handoff
+## 三步，把问题说清。
 
-| Inspect, record, capture | Hand off with context |
+1. **差多少，直接量。** 点选元素查看尺寸、间距与样式。在页面上试改，确认修改方向。
+2. **问题在哪，证据就在哪。** 写下修改要求。页面全景、元素细节和位置，跟着记录一起保存。
+3. **记录一次，接着改。** 导出报告给团队，或把 ZIP 交给前端和 Agent。交接时少一次追问。
+
+![差多少，直接量：在真实网页上测量、记录、取证。](brand/feature-inspect-16x9.png)
+
+## 谁来接手，就选谁用得上的格式。
+
+| 格式 | 用来做什么 |
 | --- | --- |
-| ![Inspect and capture](brand/feature-inspect-16x9.png) | ![HTML, XLSX and Agent handoff](brand/feature-delivery-16x9.png) |
+| **HTML · 协作问题单** | 打开，就看懂。把问题和截图放在一起，方便查看、跟进。 |
+| **XLSX · 排期问题表** | 排好，逐项改。把问题带进表格，安排优先级与修复排期。 |
+| **ZIP · 给前端 / Agent** | 报告、元素定位与截图打包交付，结合项目源码继续处理。 |
 
-Find current product screenshots, share graphics, editable assets and release copy in the [marketing kit index](docs/marketing/README.md).
+![记录一次，接着改：HTML、XLSX 与 ZIP 交付。](brand/feature-delivery-16x9.png)
 
-## What you can do
+**把 ZIP 放进项目，再交给 Agent。** Agent 需要项目源码、运行环境与修改授权，验证对应实现后再修改。完成后，回到网页复核。参阅 [交接说明与可复制提示词](docs/AGENT-HANDOFF.md)。
 
-- **Inspect:** select DOM elements, read dimensions, typography, colors and box-model properties. Hold Option / Alt to measure spacing.
-- **Preview changes locally:** adjust styles and supported text properties, then undo. Changes affect the current page only; they do not edit source code.
-- **Record issues:** capture a selected element or a drawn region, add a description, and keep contextual/detail screenshots with element anchors.
-- **Review:** browse, search, filter, edit and locate recorded issues on the page.
-- **Compare with a design snapshot:** manually import a Figma-style JSON snapshot. Local deterministic matching shows confidence, expected values, actual values and deltas.
-- **Deliver:** export a standalone HTML report, an Excel workbook, or a ZIP with `report.md`, `issues.json` and screenshots.
+## 从下一次走查开始。
 
-There is no account, backend or API key. Review data lives in the extension's local IndexedDB. See [privacy and permissions](PRIVACY.md).
+当前版本 **v0.9.4 · 开发者预览版**，通过 Chrome 手动加载，尚未上架扩展商店。
 
-## Install
+1. [下载插件 ZIP](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip)，解压。
+2. 打开 `chrome://extensions`，开启「开发者模式」。点击「加载已解压的扩展程序」，选择包含 `manifest.json` 的 **UIDelta** 文件夹。
+3. 固定插件并刷新目标网页。点击 UIDelta 图标，或按 **Option / Alt + Shift + I** 开始。
 
-1. Download `UIDelta-v0.9.4.zip` from [the public download](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip), then unzip it.
-2. Open `chrome://extensions` and turn on **Developer mode**.
-3. Click **Load unpacked** and choose the `UIDelta` folder containing `manifest.json`.
-4. Pin UIDelta, refresh the webpage you want to review, and click the extension icon.
+使用源码时，直接加载仓库内的 **extension** 文件夹。详细步骤见 [安装指南](docs/INSTALL.md)。
 
-From source, load the repository's **`extension/`** folder directly. No build or dependency installation is required for the extension.
+**无需账号，无需 API Key。** 当前版本的走查记录与截图保存在浏览器本地，不向外部服务器发送。查看 [隐私与权限说明](PRIVACY.md)。
 
-## A short review loop
+<details>
+<summary>快捷键与进阶功能</summary>
 
-1. Open UIDelta and start a review session.
-2. Select an element, inspect its styles or measure spacing.
-3. Press **R**, describe the problem, and save when evidence is ready.
-4. Review your issue list and export the format your team needs.
-
-| Action | Shortcut |
+| 操作 | 快捷键 |
 | --- | --- |
-| Toggle UIDelta | Alt / Option + Shift + I |
-| Measure spacing | Hold Alt / Option |
-| Select through the current layer | Hold Ctrl / Command |
-| Record the selected element | R |
-| Open issue list | I |
-| Temporarily interact with the webpage | Hold Space |
-| Save the issue | Ctrl / Command + Enter |
-| Close the active panel | Escape |
+| 开关 UIDelta | Option / Alt + Shift + I |
+| 查看元素间距 | 按住 Option / Alt |
+| 穿透选择元素 | 按住 Command / Ctrl |
+| 记录问题 | R |
+| 打开问题列表 | I |
+| 临时操作原网页 | 按住 Space |
+| 保存问题 | Command / Ctrl + Enter |
+| 关闭当前面板 | Esc |
 
-See [installation details](docs/INSTALL.md) and [design snapshot guidance](docs/DESIGN-COMPARE.md).
+还支持本地样式试改与撤销、区域记录、问题检索与筛选，以及手动导入 Figma Frame JSON 快照进行设计对比。参阅 [设计对比说明](docs/DESIGN-COMPARE.md)。
 
-For source-aware coding agents, see the [Agent handoff guide](docs/AGENT-HANDOFF.md). The ZIP provides review context; the agent also needs the project's source, runtime and permission to make changes. [Brand and 16:9 campaign assets](brand/README.md) are available for sharing the project.
+</details>
 
-## Development
+<details>
+<summary>当前使用边界</summary>
 
-Node.js 22+ is required for scripts and tests. There are **no npm dependencies**.
+- 页面试改只影响当前预览，刷新后恢复；UIDelta 不修改网站源码。
+- ZIP 提供元素锚点，不提供已经验证的源码文件与行号，也不包含自动修复程序。
+- AI 自动走查、在线 Figma 同步和项目管理平台直连仍在规划中。
+- Chrome 内部页面、扩展商店等受保护页面无法注入。
+- 跨域 iframe、封闭 Shadow DOM、伪元素与 Canvas 内部对象不能独立选择。
+- 本地 `file://` 页面需开启「允许访问文件网址」。
+- 宣传素材使用真实插件界面与示例数据；截图来源记录在 [SOURCE.json](brand/screenshots/SOURCE.json)。测试页使用模拟桥接，真实截图、存储和下载需按 [QA 说明](docs/QA.md) 在浏览器中验证。
+
+</details>
+
+## 一起把细节做好。
+
+需要 Node.js 22+，项目没有 npm 依赖。
 
 ```sh
 git clone https://github.com/aaabbssbaishuo-code/UIDelta.git
@@ -72,30 +84,8 @@ npm run build
 npm start
 ```
 
-The website preview runs at `http://127.0.0.1:4173`. The build produces extension/brand ZIPs in `release/` and the static website in `_site/`. After editing extension code, reload its card in Chrome and refresh the test page.
+本地官网：`http://127.0.0.1:4173/`。ZIP 输出至 `release/`，可部署网页输出至 `_site/`。
 
-```text
-extension/            Manifest V3 extension and regression tests
-ui-lens-bookmarklet/  Optional bookmark trigger
-site/                 Static marketing site and interactive illustration
-brand/                SVG logos, PNG icons and share graphics
-docs/                 Installation, product, release and design guidance
-scripts/              Dependency-free checks, packaging and preview
-```
+[提交问题](https://github.com/aaabbssbaishuo-code/UIDelta/issues) · [贡献指南](CONTRIBUTING.md) · [路线图](ROADMAP.md) · [宣传材料与文案](docs/marketing/README.md)
 
-`extension/test-harness.html` uses an in-memory mock bridge to test UI behavior; its screenshots and exports are simulated. Real capture/storage/export verification requires loading the extension into Chrome. See [QA](docs/QA.md).
-
-## Current boundaries
-
-- Figma comparison needs a manually supplied JSON snapshot. Online Figma sync, AI scanning, direct project-management sync and source-code mapping are not implemented.
-- Chrome internal pages and the Chrome Web Store cannot be inspected.
-- Cross-origin iframe contents, closed shadow roots, pseudo-elements and objects inside Canvas are not independent selectable elements.
-- Local file access requires explicit activation in Chrome extension settings.
-- UI and report labels are currently primarily Chinese. English product documentation is available here.
-- Broad website access is currently requested to support page activation and cross-page reviews. No external data requests are made by the extension; exported reports can contain page text, URLs and screenshots.
-
-## Contribute
-
-Small, focused fixes are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md), open an issue with a reproducible example, or submit a pull request. Planned work is listed in [ROADMAP.md](ROADMAP.md).
-
-Created by [白土墩 / aaabbssbaishuo-code](https://github.com/aaabbssbaishuo-code). Licensed under [MIT](LICENSE).
+作者：[白土墩](https://github.com/aaabbssbaishuo-code) · [MIT License](LICENSE)

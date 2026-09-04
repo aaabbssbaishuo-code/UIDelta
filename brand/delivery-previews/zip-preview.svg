@@ -1,27 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="270" height="164" viewBox="0 0 270 164" fill="none" role="img" aria-labelledby="title desc">
-  <title id="title">ZIP 给 Agent 或前端的证据包</title>
-  <desc id="desc">报告 report.md、结构化定位 issues.json 和截图 assets 一起交给 Agent，结合项目源码定位并修改问题。</desc>
-  <style>text{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif}.mono{font-family:'SFMono-Regular',Consolas,monospace}</style>
-  <rect x=".5" y=".5" width="269" height="163" rx="10" fill="#F8F8F4" stroke="#E2E4DC"/>
-  <rect x="14" y="14" width="38" height="20" rx="4" fill="#FCE7DF"/>
-  <text x="33" y="27.5" text-anchor="middle" class="mono" font-size="9" font-weight="600" fill="#BD4528">ZIP</text>
-  <text x="61" y="28" font-size="12" font-weight="600" fill="#2E312C">交给 Agent，辅助修复</text>
-  <path d="M20 53H52L59 59H123Q127 59 127 63V122Q127 126 123 126H20Q16 126 16 122V57Q16 53 20 53Z" fill="#FFF" stroke="#DCE2D3"/>
-  <rect x="27" y="68" width="13" height="15" rx="2" fill="#F0F3E9"/>
-  <path d="M31 72H36M31 75H36M31 78H34" stroke="#93A080" stroke-width=".9" stroke-linecap="round"/>
-  <text x="47" y="79" class="mono" font-size="9.5" fill="#546447">report.md</text>
-  <rect x="27" y="87" width="13" height="15" rx="2" fill="#F0F3E9"/>
-  <path d="M32 91L29.5 94.5L32 98M35 91L37.5 94.5L35 98" stroke="#93A080" stroke-width=".9" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="47" y="98" class="mono" font-size="9.5" fill="#546447">issues.json</text>
-  <rect x="27" y="106" width="13" height="13" rx="2" fill="#F0F3E9"/>
-  <path d="M29 116L32 112L34 114L36 112L38 116" stroke="#93A080" stroke-width=".9" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="31" cy="109.5" r="1" fill="#93A080"/>
-  <text x="47" y="116" class="mono" font-size="9.5" fill="#546447">assets/</text>
-  <path d="M137 92H160M154 87L160 92L154 97" stroke="#F2603D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="171" y="55" width="83" height="72" rx="6" fill="#2E312C"/>
-  <rect x="201" y="65" width="23" height="21" rx="4" fill="#F2603D"/>
-  <path d="M208 71L204 75.5L208 80M217 71L221 75.5L217 80M214 70L211 81" stroke="#272A28" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="212.5" y="102" text-anchor="middle" font-size="11" font-weight="600" fill="#F2F3ED">Agent / 前端</text>
-  <text x="212.5" y="116" text-anchor="middle" font-size="9" fill="#ADB5A2">定位 · 修改</text>
-  <text x="135" y="148" text-anchor="middle" font-size="9" fill="#88927D">报告 + 定位 + 截图，结合项目源码使用</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="270" height="164" viewBox="0 0 270 164"><title>打包，交给 Agent。</title><desc>UIDelta ZIP 交付示例，使用简化界面与虚构数据。</desc><rect x=".5" y=".5" width="269" height="163" rx="12" fill="#FFFFFF" stroke="#E2E6DD"/><g font-family="-apple-system, BlinkMacSystemFont, PingFang SC, sans-serif"><text x="16" y="34" fill="#202322" font-size="16" font-weight="600">打包，交给 Agent。</text><text x="251" y="32" text-anchor="end" font-family="monospace" font-size="9" fill="#ACB29F">ZIP</text><rect x="16" y="55" width="130" height="75" rx="8" fill="#F5F6F3"/>
+<g font-size="10" fill="#657457"><text x="28" y="75">报告</text><text x="28" y="95">定位</text><text x="28" y="115">截图</text></g>
+<g font-family="monospace" font-size="9" fill="#343F2C"><text x="57" y="75">report.md</text><text x="57" y="95">issues.json</text><text x="57" y="115">assets/</text></g>
+<path d="M153 92H168M164 88L168 92L164 96" fill="none" stroke="#A0AD91" stroke-width="1.3"/>
+<rect x="175" y="55" width="79" height="75" rx="8" fill="#252B20"/>
+<text x="214.5" y="85" text-anchor="middle" font-size="16" font-weight="600" fill="#F6F9EF">Agent</text>
+<text x="214.5" y="106" text-anchor="middle" font-size="9" fill="#F79775">读取 → 定位</text>
+<text x="135" y="150" text-anchor="middle" font-size="9" fill="#77876A">结合项目源码，修改并复核。</text></g></svg>

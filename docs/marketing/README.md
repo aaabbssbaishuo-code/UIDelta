@@ -1,41 +1,45 @@
-# UIDelta 宣传材料入口
+# UIDelta 宣传材料
 
-更新：2026-09-04。宣传图中的插件面板已替换为当前 UIDelta 源码渲染的橙色／灰绿新版界面。示例网页为虚构的 Orbit 工作空间。
+**看见问题。说清怎么改。**
 
-## 直接使用
+对外发布从这里选文案、取图片。PNG 可直接使用，HTML / CSS / SVG 用于继续编辑。
 
-| 材料 | 文件 | 尺寸／用途 |
+## 先取文案
+
+| 需要什么 | 文件 |
+| --- | --- |
+| 统一主张、标题与表达边界 | [文案基准](COPY-GUIDE.zh-CN.md) |
+| 社交发布、中英文介绍、GitHub About | [发布文案](../LAUNCH-COPY.md) |
+| Chrome 商店介绍 | [商店文案](STORE-LISTING.zh-CN.md) |
+| 产品定义与功能事实 | [产品定义](../PRODUCT.md) |
+| 前端与 Agent 交接说明 | [Agent 交接](../AGENT-HANDOFF.md) |
+
+## 再选图片
+
+| 用途 | 尺寸 | PNG / 可编辑源文件 |
 | --- | --- | --- |
-| 产品封面 | [cover-16x9.png](../../brand/cover-16x9.png) | 1920 × 1080，产品介绍首图 |
-| 测量、记录、取证 | [feature-inspect-16x9.png](../../brand/feature-inspect-16x9.png) | 1920 × 1080，核心功能一 |
-| 前端与 Agent 交付 | [feature-delivery-16x9.png](../../brand/feature-delivery-16x9.png) | 1920 × 1080，核心功能二 |
-| GitHub 社交预览 | [social-card.png](../../brand/social-card.png) | 1280 × 640 |
-| 竖版发布海报 | [launch-poster.png](../../brand/launch-poster.png) | 1080 × 1440 |
-| Logo 与字标 | [品牌素材](../../brand/README.md) | SVG / PNG |
-| 三种交付悬浮图 | [delivery-previews](../../brand/delivery-previews/README.md) | 270 × 164 / 540 × 328 / SVG |
-| 新版界面截图 | [screenshots](../../brand/screenshots/README.md) | 测量、记录、交付、工具栏 |
-| 产品与商店介绍 | [STORE-LISTING.zh-CN.md](STORE-LISTING.zh-CN.md) | 标题、短描述、完整介绍草稿 |
-| 首发与社交文案 | [LAUNCH-COPY.md](../LAUNCH-COPY.md) | 中英文、长短版本 |
-| Agent 使用说明 | [AGENT-HANDOFF.md](../AGENT-HANDOFF.md) | ZIP 内容与可复制提示词 |
+| 产品封面 | 1920×1080 · 16:9 | [PNG](../../brand/cover-16x9.png) / [HTML](../../brand/cover-16x9.html) |
+| 测量、记录、取证 | 1920×1080 · 16:9 | [PNG](../../brand/feature-inspect-16x9.png) / [HTML](../../brand/feature-inspect-16x9.html) |
+| HTML、XLSX、ZIP 交付 | 1920×1080 · 16:9 | [PNG](../../brand/feature-delivery-16x9.png) / [HTML](../../brand/feature-delivery-16x9.html) |
+| GitHub 社交预览 | 1280×640 | [PNG](../../brand/social-card.png) / [HTML](../../brand/social-card.html) |
+| 竖版发布海报 | 1080×1440 | [PNG](../../brand/launch-poster.png) / [HTML](../../brand/launch-poster.html) |
+| 三种交付悬浮图 | 270×164 / 540×328 | [PNG 与 SVG](../../brand/delivery-previews/) |
+| Logo、字标 | SVG 与多尺寸 PNG | [品牌文件](../../brand/README.md) |
+| 实际产品界面 | 全景、面板、测量画面 | [截图与来源](../../brand/screenshots/README.md) |
 
-## 网页入口
+主画面使用正视界面和标注。示例网页与记录数据为虚构内容，真实产品 UI 的来源见截图目录。
 
-- `site/index.html`：产品首页，支持切换查看新版测量／记录／交付界面。
-- `site/press.html`：宣传资料页，集中预览与下载。
-- `site/brand.html`：Logo 与品牌用法。
-- `brand/delivery-previews/index.html`：三种交付方式的悬浮示例。
+## 完整下载
 
-## 文件约定
+- [在线预览](https://aaabbssbaishuo-code.github.io/UIDelta/press.html)
+- [完整宣传包](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-marketing-kit.zip)：图片、Logo、截图、可编辑源文件、文案和素材索引。
+- [三张 16:9 组图](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-promo-16x9.zip)
+- [三种交付预览](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-delivery-previews.zip)
 
-保持现有五张成图文件名不变，旧的网页和下载链接继续引用最新设计。同名 HTML 与 CSS 为编辑源文件；`brand/screenshots/` 提供所引用的面板图；`brand/source/` 提供虚构网页源文件。旧稿可通过 Git 历史查看，发布目录只保留现稿。
+## 维护
 
-生成方式见 [品牌文档](../../brand/README.md)。`npm run build` 输出：
+修改宣传排版后，用 `scripts/render-marketing.cjs --art-only` 导出图片；脚本需要本机的 Playwright 与 Chrome。重新采集产品界面时，去掉 `--art-only`。素材源文件保留相对路径依赖，单独分享一个 HTML 时需同时附上 CSS、Logo 和截图目录。
 
-- `UIDelta-promo-16x9.zip`：三张成图、编辑源文件和必要截图。
-- `UIDelta-brand-kit.zip`：完整品牌资产及其子目录。
-- `UIDelta-delivery-previews.zip`：三种交付悬浮预览图与演示。
-- `UIDelta-marketing-kit.zip`：宣传资产、发布文案、使用说明与素材索引，保留仓库相对路径。
+运行 `npm run build` 重建下载 ZIP 与 `_site/`。提交宣传源文件后，GitHub Pages 工作流会重新部署官网和下载包。
 
-## 发布状态
-
-材料就绪不等于已经公开发布。GitHub、Releases、官网和 Chrome 商店状态应以实际发布结果为准。当前仍使用 v0.9.4 开发者预览版，不因宣传设计更新而虚构新版本号。
+官网入口：`site/index.html`；素材下载页：`site/press.html`；品牌页：`site/brand.html`。图片固定文件名，方便 GitHub README 与官网同步更新。

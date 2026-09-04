@@ -1,61 +1,68 @@
-# UIDelta 首发文案
-
-以下为可发布草稿；仓库及宣传页地址确认可访问后使用。不包含虚构数据、评价或背书。
-
-## 产品与商店介绍
-
-完整原创介绍见 [产品文案](marketing/STORE-LISTING.zh-CN.md)，含概述、功能、用户、场景、使用方法与实际边界。新版素材索引见 [宣传材料](marketing/README.md)。
+# UIDelta 发布文案
 
 ## GitHub About
 
-Open-source UI inspection, issue capture and evidence handoff for designers. 本地测量、截图取证与走查交付。
+看见问题。说清怎么改。在真实网页上测量、记录、取证，把修改依据交给前端和 Agent。开源 Chrome 走查工具。
 
-Topics: `chrome-extension`, `ui-inspection`, `design-qa`, `design-tools`, `visual-review`, `javascript`, `local-first`
+## 中文发布正文
 
-## 中文首发
+看见问题。说清怎么改。
 
-我把自己做的 UI 走查工具 UIDelta 开源了。
+我把自己做的网页走查工具 UIDelta 开源了。
 
-做设计验收时，发现问题只是第一步。后面还要量尺寸、截图、找位置、解释怎么改，再整理给开发。
+做页面验收时，发现「这里不对」并不难。难的是把它说清：哪个元素，差了多少，要改成什么。
 
-UIDelta 把这些动作收在真实网页上：
+所以我把三件事放到了一起：
 
-- 点选元素查看尺寸与样式，按住 Option / Alt 测量间距。
-- 按 R 记录问题，自动保留页面全景、元素细节和定位信息。
-- 导出 HTML、Excel，或包含 Markdown、JSON 和截图的 ZIP。
-- 可以本地试改样式，也能手动导入 Figma JSON 快照查看差异。
+- 差多少，直接在真实网页上量。
+- 写下问题，截图和元素位置一起保存。
+- 导出报告，把修改依据交给前端和 Agent。
 
-不需要账号或 API Key，数据保存在本地。当前是 Chrome 开发者预览版，需要解压加载，在线 Figma 同步与 AI 自动走查还没做。
+HTML 用来查看、跟进。XLSX 用来整理、排期。ZIP 带上报告、元素定位与截图，交给项目里的 Agent，结合源码继续处理。
 
-如果你也经常做 UI 走查，欢迎试用，告诉我哪一步最影响你的效率。
+把一句「这里不对」，变成一份开发看得懂的走查报告。
 
+免费开源，无需账号，数据留在本地。当前是 v0.9.4 开发者预览版，需要在 Chrome 中手动加载。
+
+欢迎拿一个真实页面试试，也欢迎把不顺手的地方告诉我。
+
+官网：https://aaabbssbaishuo-code.github.io/UIDelta/
 GitHub：https://github.com/aaabbssbaishuo-code/UIDelta
-宣传页：https://aaabbssbaishuo-code.github.io/UIDelta/
 
-## 短版
+Agent 处理需要项目源码、运行环境和修改授权；完成后仍需复核。
 
-UIDelta 开源了：在真实网页上测量 UI、记录问题，自动保留截图和元素位置，再导出一份可以交给开发的报告。无需账号，本地运行。当前提供 Chrome 开发者预览版，欢迎设计师试用。
+## 中文短版
 
-## English
+我把 UIDelta 开源了。
 
-I’m open-sourcing UIDelta, a browser-based UI review tool for designers.
+在真实网页上测量、记录、取证，把一句「这里不对」，变成一份开发看得懂的走查报告。HTML 看问题，XLSX 排修改，ZIP 交给前端和 Agent。
 
-Select an element, inspect its dimensions and styles, record the issue, and keep the screenshot evidence and element anchor together. Export HTML, Excel, or a ZIP with Markdown, JSON and images for your existing handoff workflow.
+免费使用，无需账号，数据留在本地。当前为开发者预览版，通过 Chrome 手动加载。
 
-It runs locally, without an account or API key. This is an early Chrome extension preview installed through Developer mode. Online Figma sync and AI scanning are not included; local comparison uses a manually imported design snapshot.
+https://github.com/aaabbssbaishuo-code/UIDelta
 
-Feedback from designers who do implementation reviews is especially welcome.
+## English launch post
 
-## 图像搭配
+See the issue. Make the fix clear.
 
-- GitHub social preview：`brand/social-card.png`（1280×640）
-- 社交平台竖版：`brand/launch-poster.png`（1080×1440）
-- 产品介绍：`site/assets/product-preview.png`
-- 16:9 产品封面：`brand/cover-16x9.png`（1920×1080）
-- 16:9 测量 / 记录 / 取证：`brand/feature-inspect-16x9.png`（1920×1080）
-- 16:9 前端与 Agent 交付：`brand/feature-delivery-16x9.png`（1920×1080）
-- 所有示例均使用虚构项目和页面。插件面板由 2026-09-04 当前源码渲染，替换了旧版示意界面。
+I've open-sourced UIDelta, a tool for reviewing real web pages.
 
-## Agent 交付短文案
+Finding something that looks wrong is the easy part. Explaining exactly where it is and what should change takes more work.
 
-走查完，把问题打包交付。HTML 用于团队查看，XLSX 用于排期；ZIP 带上问题描述、页面、元素锚点和截图，交给具备项目源码的 Agent，依据证据定位问题、修改并复核。
+UIDelta brings three steps together: measure the page, record the issue with screenshots and element anchors, then hand the evidence to someone who can fix it.
+
+Share an HTML report, organize fixes in XLSX, or give a ZIP to a developer or coding agent working in your project. The agent needs source access, a runnable environment and permission to edit. Changes still need to be checked.
+
+Free and open source. No account. Review data stays in your browser. v0.9.4 is a developer preview installed as an unpacked Chrome extension.
+
+Try it on a page you're reviewing. I'd like to hear where it helps and where it gets in the way.
+
+https://github.com/aaabbssbaishuo-code/UIDelta
+
+## 配图顺序
+
+1. `brand/cover-16x9.png` — 看见问题。说清怎么改。
+2. `brand/feature-inspect-16x9.png` — 差多少，直接量。
+3. `brand/feature-delivery-16x9.png` — 记录一次，接着改。
+
+三张均为 1920×1080。GitHub 社交预览使用 `brand/social-card.png`；竖版发布使用 `brand/launch-poster.png`。更多文件见 [素材索引](marketing/README.md)。

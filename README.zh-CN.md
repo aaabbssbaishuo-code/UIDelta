@@ -1,50 +1,47 @@
-<p align="center"><img src="brand/icon-256.png" width="80" alt="UIDelta Logo"></p>
 <h1 align="center">UIDelta</h1>
-<p align="center"><strong>每一处偏差，都有据可查。</strong><br>为 UI 设计师打造的开源浏览器走查工具。</p>
-<p align="center"><a href="README.md">English</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/">官网与交互演示</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip">下载插件</a> · <a href="LICENSE">MIT 开源协议</a></p>
+<p align="center"><strong>看见问题。说清怎么改。</strong></p>
+<p align="center"><a href="README.en.md">English</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/">产品官网</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip">免费下载</a> · <a href="LICENSE">MIT 开源</a></p>
 
-![UIDelta 新版产品封面](brand/cover-16x9.png)
+![UIDelta：看见问题。说清怎么改。](brand/cover-16x9.png)
 
-发现页面与设计不一致时，不必再分别截图、找位置、记尺寸。UIDelta 把**测量、问题描述、截图和元素定位**收进同一条走查记录，再导出交给开发，或接入现有的整理流程。
+把一句「这里不对」，变成一份开发看得懂的走查报告。
 
-**当前版本：v0.9.4 开发者预览版。** 通过 Chrome「加载已解压的扩展程序」安装，尚未上架扩展商店。上图的插件界面由当前源码渲染，使用虚构项目演示。
+**UIDelta 是一个开源网页走查工具。** 在真实网页上测量、记录、取证，把修改依据一起交给前端和 Agent。
 
-## 从发现，到交付
+## 三步，把问题说清。
 
-| 在真实页面上留下证据 | 带着证据交给前端与 Agent |
+1. **差多少，直接量。** 点选元素查看尺寸、间距与样式。在页面上试改，确认修改方向。
+2. **问题在哪，证据就在哪。** 写下修改要求。页面全景、元素细节和位置，跟着记录一起保存。
+3. **记录一次，接着改。** 导出报告给团队，或把 ZIP 交给前端和 Agent。交接时少一次追问。
+
+![差多少，直接量：在真实网页上测量、记录、取证。](brand/feature-inspect-16x9.png)
+
+## 谁来接手，就选谁用得上的格式。
+
+| 格式 | 用来做什么 |
 | --- | --- |
-| ![测量、记录、取证](brand/feature-inspect-16x9.png) | ![HTML、XLSX 与 ZIP 交付](brand/feature-delivery-16x9.png) |
+| **HTML · 协作问题单** | 打开，就看懂。把问题和截图放在一起，方便查看、跟进。 |
+| **XLSX · 排期问题表** | 排好，逐项改。把问题带进表格，安排优先级与修复排期。 |
+| **ZIP · 给前端 / Agent** | 报告、元素定位与截图打包交付，结合项目源码继续处理。 |
 
-新版采用橙色／灰绿面板、紧凑工具栏、展开式记录选项和交付悬浮示例。完整图片、截图与文案见 [宣传材料](docs/marketing/README.md)。
+![记录一次，接着改：HTML、XLSX 与 ZIP 交付。](brand/feature-delivery-16x9.png)
 
-## 已实现
+**把 ZIP 放进项目，再交给 Agent。** Agent 需要项目源码、运行环境与修改授权，验证对应实现后再修改。完成后，回到网页复核。参阅 [交接说明与可复制提示词](docs/AGENT-HANDOFF.md)。
 
-| 环节 | 能力 |
-| --- | --- |
-| 测量与检查 | 点选元素查看宽高、盒模型、字体、颜色等；Option / Alt 测距 |
-| 本地试改 | 预览尺寸、间距、字体、颜色、圆角及支持的文本修改，可撤销 |
-| 记录与取证 | 选中元素或框选区域；保存描述、截图、元素锚点与样式 |
-| 问题管理 | 页面编号、列表检索、筛选、编辑、删除与页面定位 |
-| 本地设计对比 | 手动导入 Figma JSON 快照，对比设计值、实际值与差值，显示匹配置信度 |
-| 交付导出 | HTML 报告、Excel 表格，或含 Markdown、JSON、截图的 ZIP |
+## 从下一次走查开始。
 
-无需账号、后端或 API Key。当前版本不发送外部网络请求，数据保存在扩展本地 IndexedDB。具体权限和数据边界见 [隐私说明](PRIVACY.md)。
+当前版本 **v0.9.4 · 开发者预览版**，通过 Chrome 手动加载，尚未上架扩展商店。
 
-## 安装
+1. [下载插件 ZIP](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip)，解压。
+2. 打开 `chrome://extensions`，开启「开发者模式」。点击「加载已解压的扩展程序」，选择包含 `manifest.json` 的 **UIDelta** 文件夹。
+3. 固定插件并刷新目标网页。点击 UIDelta 图标，或按 **Option / Alt + Shift + I** 开始。
 
-1. 从 [公开下载地址](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip) 下载 `UIDelta-v0.9.4.zip` 并解压。
-2. 打开 `chrome://extensions`，开启「开发者模式」。
-3. 点击「加载已解压的扩展程序」，选择解压后包含 `manifest.json` 的 **UIDelta** 文件夹。
-4. 固定插件到工具栏，刷新待走查的网页，点击 UIDelta 图标开始。
+使用源码时，直接加载仓库内的 **extension** 文件夹。详细步骤见 [安装指南](docs/INSTALL.md)。
 
-使用源码时，直接加载仓库内的 **extension** 文件夹，无需安装 npm 依赖。详细步骤见 [安装指南](docs/INSTALL.md)。
+**无需账号，无需 API Key。** 当前版本的走查记录与截图保存在浏览器本地，不向外部服务器发送。查看 [隐私与权限说明](PRIVACY.md)。
 
-## 一次完整走查
-
-1. 开启 UIDelta，开始本次走查。
-2. 点击目标元素；需要测距时按住 Option / Alt。
-3. 按 **R** 写下问题描述，等待证据准备完成后保存。
-4. 在问题列表整理记录，导出交付文件。
+<details>
+<summary>快捷键与进阶功能</summary>
 
 | 操作 | 快捷键 |
 | --- | --- |
@@ -57,9 +54,26 @@
 | 保存问题 | Command / Ctrl + Enter |
 | 关闭当前面板 | Esc |
 
-## 开发与打包
+还支持本地样式试改与撤销、区域记录、问题检索与筛选，以及手动导入 Figma Frame JSON 快照进行设计对比。参阅 [设计对比说明](docs/DESIGN-COMPARE.md)。
 
-需要 Node.js 22+。项目没有 npm 依赖。
+</details>
+
+<details>
+<summary>当前使用边界</summary>
+
+- 页面试改只影响当前预览，刷新后恢复；UIDelta 不修改网站源码。
+- ZIP 提供元素锚点，不提供已经验证的源码文件与行号，也不包含自动修复程序。
+- AI 自动走查、在线 Figma 同步和项目管理平台直连仍在规划中。
+- Chrome 内部页面、扩展商店等受保护页面无法注入。
+- 跨域 iframe、封闭 Shadow DOM、伪元素与 Canvas 内部对象不能独立选择。
+- 本地 `file://` 页面需开启「允许访问文件网址」。
+- 宣传素材使用真实插件界面与示例数据；截图来源记录在 [SOURCE.json](brand/screenshots/SOURCE.json)。测试页使用模拟桥接，真实截图、存储和下载需按 [QA 说明](docs/QA.md) 在浏览器中验证。
+
+</details>
+
+## 一起把细节做好。
+
+需要 Node.js 22+，项目没有 npm 依赖。
 
 ```sh
 git clone https://github.com/aaabbssbaishuo-code/UIDelta.git
@@ -70,20 +84,8 @@ npm run build
 npm start
 ```
 
-宣传页预览地址为 `http://127.0.0.1:4173`。插件和品牌 ZIP 输出到 `release/`，可部署网页输出到 `_site/`。修改扩展源码后，在扩展管理页重新加载并刷新目标网页。
+本地官网：`http://127.0.0.1:4173/`。ZIP 输出至 `release/`，可部署网页输出至 `_site/`。
 
-## 当前边界
+[提交问题](https://github.com/aaabbssbaishuo-code/UIDelta/issues) · [贡献指南](CONTRIBUTING.md) · [路线图](ROADMAP.md) · [宣传材料与文案](docs/marketing/README.md)
 
-- 在线 Figma 同步、AI 自动走查、项目管理平台直连和源码定位尚未实现。
-- 设计对比需要手动准备 JSON 快照，并非粘贴 Figma 链接后自动获取。见 [快照说明](docs/DESIGN-COMPARE.md)。
-- 本地试改只影响当前页面预览，不会改动网站源代码。
-- 无法注入 Chrome 内部页面、扩展商店等受保护页面。
-- 跨域 iframe、封闭 Shadow DOM、伪元素和 Canvas 内部对象不能独立选择。
-- 走查 `file://` 页面需开启「允许访问文件网址」。
-- 测试页使用模拟桥接，真实截图、存储和下载仍需在浏览器中验证，见 [QA 说明](docs/QA.md)。
-
-欢迎 [提交问题](https://github.com/aaabbssbaishuo-code/UIDelta/issues) 或贡献代码。参阅 [贡献指南](CONTRIBUTING.md)、[路线图](ROADMAP.md) 和 [品牌素材](brand/README.md)。
-
-想把 ZIP 交给编码 Agent？参阅 [Agent 交接说明与可复制提示词](docs/AGENT-HANDOFF.md)。需要结合项目源码、运行环境和修改授权来定位、修改并复核。宣传素材包含三张 1920×1080 产品与功能页。
-
-作者：[白土墩 / aaabbssbaishuo-code](https://github.com/aaabbssbaishuo-code) · [MIT License](LICENSE)
+作者：[白土墩](https://github.com/aaabbssbaishuo-code) · [MIT License](LICENSE)

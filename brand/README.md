@@ -1,58 +1,37 @@
-# UIDelta brand kit
+# UIDelta 品牌素材
 
-**每一处偏差，都有据可查。 / Every UI difference deserves clear evidence.**
+**看见问题。说清怎么改。**
 
-The mark combines a selected region, three square anchor handles and an annotation note. The note's lower tail links the observation back to the page. It is intended to read as “select and annotate” at a glance.
+UIDelta 是开源网页走查工具。在真实网页上测量、记录、取证，把修改依据一起交给前端和 Agent。
 
-## Assets
+## 标记
 
-- `icon.svg`: orange rounded-square app icon, 64×64 viewBox
-- `mark.svg`: orange symbol on a transparent background
-- `mark-dark.svg`, `mark-light.svg`: monochrome symbols
-- `wordmark.svg`, `wordmark-light.svg`: horizontal SVG lockups (text uses local Inter/Arial fallback)
-- `icon-256.png`, `icon-512.png`, `icon-1024.png`: raster app icons
-- `social-card.png`: 1280×640 share graphic
-- `launch-poster.png`: 1080×1440 Chinese launch poster
-- `social-card.html`, `launch-poster.html`: editable sources for the graphics
-- `cover-16x9.png`: 1920×1080 product cover
-- `feature-inspect-16x9.png`: 1920×1080 measurement, recording and evidence page
-- `feature-delivery-16x9.png`: 1920×1080 HTML/XLSX/ZIP and Agent handoff page
-- Matching `*-16x9.html` files and `campaign-16x9.css`: editable campaign sources
+选区锚点与标注便签组成 Logo，表达「选中一个元素，留下一个问题」。保持图形比例，周围至少留出图标宽度 1/4 的空间。
 
-The three 16:9 graphics share the updated annotation identity. The delivery visual follows the product's three output routes and shows an illustrative Agent workflow. It requires project source and a runtime; the graphic does not claim that the ZIP alone can automatically fix a website.
+| 文件 | 用途 |
+| --- | --- |
+| `icon.svg`、`icon-256.png`、`icon-512.png`、`icon-1024.png` | 应用图标 |
+| `mark.svg`、`mark-dark.svg`、`mark-light.svg` | 独立标记 |
+| `wordmark.svg`、`wordmark-light.svg` | 标准与反白字标 |
 
-The browser extension contains 16, 32, 48 and 128px PNG icons under `extension/icons/`. All PNGs were rendered from project-owned vector or HTML sources; no stock photography or remote font dependency is used.
+名称统一写作 **UIDelta**。深色背景使用反白字标；SVG 字标有系统字体回退，PNG 为固定渲染结果。
 
-## Design tokens
+## 宣传视觉
 
-| Token | Value | Purpose |
-| --- | --- | --- |
-| Delta Orange | `#F2603D` | Mark, measurements, primary action |
-| Graphite | `#272A28` | Primary text and dark surfaces |
-| Paper | `#F8F8F4` | Main background |
-| Sage | `#7B8969` | Secondary demonstration content |
+白色底、石墨正文、标注橙强调。橙色对应被指出的差异和要采取的动作。界面正视呈现，图与文字按同一基线排列，保留足够留白。
 
-Keep clear space of at least one quarter of the icon's width. Use the app icon at 16px or larger, the standalone mark at 24px or larger, and the horizontal lockup at 130px or larger. Do not distort the geometry or place the light mark on a light background.
+- 标注橙：`#F2603D`
+- 石墨：`#202322`
+- 白色：`#FFFFFF`；辅助底色：`#F4F5F2`
 
-Use the official product name **UIDelta**, with UI and D capitalized. The existing product interface uses its own established tokens; branding changes are deliberately limited to assets and the public site.
+Logo 自有颜色与产品界面原有配色保持不变。宣传排版不使用倾斜叠卡或装饰性终端。
 
-Brand assets are included under the repository's MIT license. When redistributing a modified product, make the modification and its author clear so users can identify its origin.
+## 文件入口
 
-## 2026-09-04 新版宣传材料
+- [三张 16:9 产品图](CAMPAIGN-README.md)
+- [交付悬浮图](delivery-previews/README.md)
+- [宣传材料总索引](../docs/marketing/README.md)
+- [文案基准](../docs/marketing/COPY-GUIDE.zh-CN.md)
+- [机器可读素材清单](manifest.json)
 
-[宣传材料总入口](../docs/marketing/README.md)集中列出五张成图、交付悬浮图、当前界面截图与发布文案。原有图片文件名保留，内容已更新；历史稿由 Git 历史管理。
-
-### 重新生成
-
-当前截图源在 `screenshots/`，虚构页面源在 `source/workspace.html`。`screenshots/SOURCE.json` 记录所用产品代码校验值。
-
-开发环境有 Playwright 和 Google Chrome 时运行：
-
-```sh
-node scripts/render-marketing.cjs
-npm run build
-```
-
-渲染脚本从仓库根目录执行，先渲染当前插件界面，再导出三张 16:9 图片、社交封面和竖版海报。Playwright 仅为制作工具，不是插件或静态网站的运行依赖。可以通过 `NODE_PATH` 指向已安装的开发依赖。
-
-构建会递归收录 `brand/` 子目录，保证 PNG、HTML、SVG、截图与文案一起交付。
+全部素材按项目 MIT 许可证提供。界面截图采用虚构页面和示例数据，来源保存在 `screenshots/SOURCE.json`。

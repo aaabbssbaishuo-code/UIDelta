@@ -14,6 +14,7 @@ const {pathToFileURL}=require('node:url');
  bridge=bridge.replace('if (message.type === "UIDELTA_GET_STATE")', 'if (message.type === "UIDELTA_GET_DELIVERY_PREVIEW") return {ok:true,dataUrl:window.__examples[message.format]}; if (message.type === "UIDELTA_GET_STATE")');
  const browser=await chromium.launch({channel:'chrome',headless:true});
  try{
+ if(!process.argv.includes('--art-only')){
  const page=await browser.newPage({viewport:{width:1280,height:760},deviceScaleFactor:2,reducedMotion:'reduce'});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',async route=>{const url=new URL(route.request().url()); if(url.hostname==='orbit.example')await route.fulfill({contentType:'text/html',body:await fs.readFile('brand/source/workspace.html','utf8')});else await route.abort();});
@@ -51,6 +52,7 @@ const {pathToFileURL}=require('node:url');
  if(errors.length)throw new Error(errors.join('\n'));
  await fs.writeFile('brand/screenshots/SOURCE.json',JSON.stringify({renderedAt:new Date().toISOString(),source:'extension/content.js',sha256:createHash('sha256').update(content).digest('hex'),viewport:{width:1280,height:760},deviceScaleFactor:2,fixture:'brand/source/workspace.html',notes:'Current extension UI rendered with the in-memory test bridge. Fictional page, capture images supplied by the renderer. Does not certify real extension capture or export.'},null,2)+'\n');
  console.log('Current extension UI captured: inspect, record, delivery, toolbar.');
+ }
  // Brand compositions use the captured UI without repainting its controls.
  if(process.argv.includes('--capture-only'))return;
  for(const [name,width,height]of [['cover-16x9',1920,1080],['feature-inspect-16x9',1920,1080],['feature-delivery-16x9',1920,1080],['social-card',1280,640],['launch-poster',1080,1440]]){

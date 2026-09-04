@@ -1,19 +1,23 @@
-# UIDelta · 新版界面宣传设计
+# UIDelta · 16:9 宣传组图
 
-更新：2026-09-04。三张 PNG 均为 **1920 × 1080**：
+2026-09-04 文案与视觉更新。
 
-1. `cover-16x9.png`：每一处偏差，都有据可查。
-2. `feature-inspect-16x9.png`：真实网页上的测量、记录与取证。
-3. `feature-delivery-16x9.png`：HTML / XLSX / ZIP，交付给前端和 Agent。
+| 文件 | 主题 |
+| --- | --- |
+| `cover-16x9.png` | 看见问题。说清怎么改。 |
+| `feature-inspect-16x9.png` | 差多少，直接量。 |
+| `feature-delivery-16x9.png` | 记录一次，接着改。 |
 
-同名 HTML 与 `campaign-16x9.css` 为可编辑源文件。新版面板直接引用 `screenshots/` 中由当前插件源码渲染的图片，未重新绘制旧版控件。请保留这些相对目录；打开 HTML 即可查看。
+三张均为 **1920×1080**。白色、石墨与标注橙统一呈现；产品界面保持正视，不倾斜、不叠压。封面用「实际 24px → 设计要求 16px」说明如何把偏差变成清楚的修改要求。
 
-`icon.svg` 和 `mark.svg` 是 UIDelta 标注 Logo，主色为 `#F2603D`。
+## 编辑与导出
 
-页面项目与走查记录是虚构示例；右侧 Agent 代码是流程示意。Agent 需要项目源码、运行环境与修改授权，按明确设计要求修改后仍需复核。
+同名 HTML 是可编辑源文件，共用 `campaign-16x9.css`，依赖 `icon.svg` 与 `screenshots/`。保持这些相对路径即可本地打开。
 
-发布主文案：
+在完整仓库中运行 `scripts/render-marketing.cjs --art-only` 只更新宣传图；不加参数时会重新采集产品界面。脚本需要 Playwright 与本机 Chrome。运行 `npm run build` 重建 ZIP。
 
-> 直接在真实网页上测量、记录、取证，把一句「这里不对」，变成一份开发看得懂的走查报告。
+## 使用说明
 
-完整材料索引在仓库 `docs/marketing/README.md`。许可为 MIT，详见随包附带的 `LICENSE`。
+使用真实产品界面与虚构项目数据。截图来源见 `screenshots/SOURCE.json`。24px → 16px 是示例修改要求，不代表工具自动知道设计目标。
+
+ZIP 为前端或 Agent 提供报告、元素定位与截图。Agent 还需要项目源码、运行环境和修改授权，完成后需复核。详见 `AGENT-HANDOFF.md`（宣传包）或仓库的 `docs/AGENT-HANDOFF.md`。
