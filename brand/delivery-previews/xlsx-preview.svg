@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="270" height="164" viewBox="0 0 270 164" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">XLSX 排期问题表</title>
+  <desc id="desc">简洁的问题表列出卡片间距、按钮颜色和标题字号三个问题，以及优先级和处理状态。</desc>
+  <style>text{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif}.mono{font-family:'SFMono-Regular',Consolas,monospace}</style>
+  <rect x=".5" y=".5" width="269" height="163" rx="10" fill="#F8F8F4" stroke="#E2E4DC"/>
+  <rect x="14" y="14" width="38" height="20" rx="4" fill="#FCE7DF"/>
+  <text x="33" y="27.5" text-anchor="middle" class="mono" font-size="9" font-weight="600" fill="#BD4528">XLSX</text>
+  <text x="61" y="28" font-size="12" font-weight="600" fill="#2E312C">问题排期，一表管理</text>
+  <rect x="14.5" y="45.5" width="241" height="104" rx="6" fill="white" stroke="#E2E4DC"/>
+  <path d="M20 46H250Q255 46 255 51V70H15V51Q15 46 20 46Z" fill="#EDF0E7"/>
+  <path d="M15 70H255M15 96H255M15 123H255" stroke="#E8EBE3"/>
+  <path d="M138 46V149M194 46V149" stroke="#E8EBE3"/>
+  <text x="26" y="61" font-size="9" fill="#748368">问题</text>
+  <text x="151" y="61" font-size="9" fill="#748368">优先级</text>
+  <text x="205" y="61" font-size="9" fill="#748368">处理状态</text>
+  <text x="26" y="87" font-size="10" fill="#363D30">卡片间距偏大</text>
+  <rect x="150" y="76" width="31" height="16" rx="3" fill="#FCEAE3"/>
+  <text x="165.5" y="87" text-anchor="middle" font-size="9" fill="#B65031">尽快</text>
+  <circle cx="207" cy="83.5" r="2" fill="#F2603D"/>
+  <text x="214" y="87" font-size="9" fill="#737C69">待处理</text>
+  <text x="26" y="114" font-size="10" fill="#363D30">按钮颜色不符</text>
+  <rect x="150" y="103" width="31" height="16" rx="3" fill="#F0F2EC"/>
+  <text x="165.5" y="114" text-anchor="middle" font-size="9" fill="#7B866F">排期</text>
+  <circle cx="207" cy="110.5" r="2" fill="#8B9E72"/>
+  <text x="214" y="114" font-size="9" fill="#737C69">进行中</text>
+  <text x="26" y="140" font-size="10" fill="#7E8773">标题字号偏小</text>
+  <rect x="150" y="129" width="31" height="16" rx="3" fill="#F0F2EC"/>
+  <text x="165.5" y="140" text-anchor="middle" font-size="9" fill="#7B866F">排期</text>
+  <path d="M204 136L206 138L210 134" stroke="#8B9E72" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="214" y="140" font-size="9" fill="#8A957E">已完成</text>
+</svg>

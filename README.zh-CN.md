@@ -3,11 +3,19 @@
 <p align="center"><strong>每一处偏差，都有据可查。</strong><br>为 UI 设计师打造的开源浏览器走查工具。</p>
 <p align="center"><a href="README.md">English</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/">官网与交互演示</a> · <a href="https://github.com/aaabbssbaishuo-code/UIDelta/releases">下载插件</a> · <a href="LICENSE">MIT 开源协议</a></p>
 
-![UIDelta 产品示意](site/assets/product-preview.png)
+![UIDelta 新版产品封面](brand/cover-16x9.png)
 
 发现页面与设计不一致时，不必再分别截图、找位置、记尺寸。UIDelta 把**测量、问题描述、截图和元素定位**收进同一条走查记录，再导出交给开发，或接入现有的整理流程。
 
-**当前版本：v0.9.4 开发者预览版。** 通过 Chrome「加载已解压的扩展程序」安装，尚未上架扩展商店。上图使用虚构页面，展示简化工作流。
+**当前版本：v0.9.4 开发者预览版。** 通过 Chrome「加载已解压的扩展程序」安装，尚未上架扩展商店。上图的插件界面由当前源码渲染，使用虚构项目演示。
+
+## 从发现，到交付
+
+| 在真实页面上留下证据 | 带着证据交给前端与 Agent |
+| --- | --- |
+| ![测量、记录、取证](brand/feature-inspect-16x9.png) | ![HTML、XLSX 与 ZIP 交付](brand/feature-delivery-16x9.png) |
+
+新版采用橙色／灰绿面板、紧凑工具栏、展开式记录选项和交付悬浮示例。完整图片、截图与文案见 [宣传材料](docs/marketing/README.md)。
 
 ## 已实现
 

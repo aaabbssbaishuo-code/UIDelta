@@ -1,0 +1,12 @@
+{
+  "renderedAt": "2026-09-04T02:31:42.819Z",
+  "source": "extension/content.js",
+  "sha256": "f6b0e2b4b12a7282837f8a388d9abee885d1c5b0d8abfefbf7ff1a4ad66246cb",
+  "viewport": {
+    "width": 1280,
+    "height": 760
+  },
+  "deviceScaleFactor": 2,
+  "fixture": "brand/source/workspace.html",
+  "notes": "Current extension UI rendered with the in-memory test bridge. Fictional page, capture images supplied by the renderer. Does not certify real extension capture or export."
+}

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="270" height="164" viewBox="0 0 270 164" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">HTML 协作问题单</title>
+  <desc id="desc">一张带有橙色标注的页面截图，与卡片间距偏大的问题描述、24 像素到 16 像素的修改要求和待处理状态并排展示。</desc>
+  <style>text{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif}.mono{font-family:'SFMono-Regular',Consolas,monospace}</style>
+  <rect x=".5" y=".5" width="269" height="163" rx="10" fill="#F8F8F4" stroke="#E2E4DC"/>
+  <rect x="14" y="14" width="38" height="20" rx="4" fill="#FCE7DF"/>
+  <text x="33" y="27.5" text-anchor="middle" class="mono" font-size="9" font-weight="600" fill="#BD4528">HTML</text>
+  <text x="61" y="28" font-size="12" font-weight="600" fill="#2E312C">截图与问题，一起看</text>
+  <rect x="14.5" y="45.5" width="241" height="104" rx="6" fill="white" stroke="#E2E4DC"/>
+  <rect x="24" y="58" width="104" height="78" rx="4" fill="#F1F3EC"/>
+  <path d="M24 70H128" stroke="#DDE2D6"/>
+  <circle cx="30" cy="64" r="1.5" fill="#B3BDAB"/><circle cx="36" cy="64" r="1.5" fill="#B3BDAB"/><circle cx="42" cy="64" r="1.5" fill="#B3BDAB"/>
+  <rect x="31" y="77" width="13" height="51" rx="2" fill="#E0E5D7"/>
+  <path d="M49 79H80" stroke="#B7C2AB" stroke-width="3" stroke-linecap="round"/>
+  <rect x="49" y="89" width="29" height="32" rx="2" fill="#D8E0CA"/>
+  <rect x="89" y="89" width="29" height="32" rx="2" fill="#E7DDCD"/>
+  <path d="M49 126H78M89 126H118" stroke="#C5CDBB" stroke-width="2" stroke-linecap="round"/>
+  <rect x="47.5" y="87.5" width="32" height="35" rx="1" stroke="#F2603D"/>
+  <path d="M81 104H87M81 101V107M87 101V107" stroke="#F2603D"/>
+  <rect x="46" y="86" width="3" height="3" fill="white" stroke="#F2603D" stroke-width=".7"/>
+  <rect x="78" y="121" width="3" height="3" fill="white" stroke="#F2603D" stroke-width=".7"/>
+  <circle cx="79" cy="87" r="7" fill="#F2603D"/>
+  <text x="79" y="89.5" text-anchor="middle" class="mono" font-size="7" font-weight="600" fill="white">1</text>
+  <text x="140" y="68" class="mono" font-size="9" fill="#8B947F">UI-001</text>
+  <text x="140" y="88" font-size="11" font-weight="600" fill="#2E312C">卡片间距偏大</text>
+  <text x="140" y="106" class="mono" font-size="10" fill="#7A8272">24 px</text>
+  <path d="M176 102H185M182 99L185 102L182 105" stroke="#ADB5A2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="192" y="106" class="mono" font-size="10" fill="#BD4528">16 px</text>
+  <rect x="140" y="117" width="48" height="17" rx="4" fill="#FFF0E8"/>
+  <circle cx="148" cy="125.5" r="2" fill="#F2603D"/>
+  <text x="155" y="129" font-size="9" fill="#A84D31">待处理</text>
+</svg>

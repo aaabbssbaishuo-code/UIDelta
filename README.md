@@ -3,11 +3,19 @@
 <p align="center"><strong>Every UI difference deserves clear evidence.</strong><br>Open-source UI inspection, issue capture and handoff for designers.</p>
 <p align="center"><a href="README.zh-CN.md">简体中文</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/">Website & interactive demo</a> · <a href="https://github.com/aaabbssbaishuo-code/UIDelta/releases">Downloads</a> · <a href="LICENSE">MIT License</a></p>
 
-![UIDelta product overview — illustrative demo](site/assets/product-preview.png)
+![UIDelta current UI — fictional project](brand/cover-16x9.png)
 
 UIDelta turns “this doesn't match the design” into a review issue with measurements, screenshots and an element anchor. Inspect the real page, record what needs to change, and export the evidence for your existing workflow.
 
-**Status: v0.9.4 developer preview.** Install as an unpacked Chrome extension. Not yet distributed through the Chrome Web Store. The image above uses fictional demo content; it illustrates the workflow.
+**Status: v0.9.4 developer preview.** Install as an unpacked Chrome extension. Not yet distributed through the Chrome Web Store. The extension panels above are rendered from the current product source, using fictional project data.
+
+## From review to handoff
+
+| Inspect, record, capture | Hand off with context |
+| --- | --- |
+| ![Inspect and capture](brand/feature-inspect-16x9.png) | ![HTML, XLSX and Agent handoff](brand/feature-delivery-16x9.png) |
+
+Find current product screenshots, share graphics, editable assets and release copy in the [marketing kit index](docs/marketing/README.md).
 
 ## What you can do
 

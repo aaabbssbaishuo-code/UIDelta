@@ -2,6 +2,10 @@
 
 以下为可发布草稿；仓库及宣传页地址确认可访问后使用。不包含虚构数据、评价或背书。
 
+## 产品与商店介绍
+
+完整原创介绍见 [产品文案](marketing/STORE-LISTING.zh-CN.md)，含概述、功能、用户、场景、使用方法与实际边界。新版素材索引见 [宣传材料](marketing/README.md)。
+
 ## GitHub About
 
 Open-source UI inspection, issue capture and evidence handoff for designers. 本地测量、截图取证与走查交付。
@@ -50,7 +54,7 @@ Feedback from designers who do implementation reviews is especially welcome.
 - 16:9 产品封面：`brand/cover-16x9.png`（1920×1080）
 - 16:9 测量 / 记录 / 取证：`brand/feature-inspect-16x9.png`（1920×1080）
 - 16:9 前端与 Agent 交付：`brand/feature-delivery-16x9.png`（1920×1080）
-- 所有示例均使用虚构项目和页面。
+- 所有示例均使用虚构项目和页面。插件面板由 2026-09-04 当前源码渲染，替换了旧版示意界面。
 
 ## Agent 交付短文案
 

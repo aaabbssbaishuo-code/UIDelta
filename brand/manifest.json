@@ -1,0 +1,16 @@
+{
+  "product": "UIDelta",
+  "updated": "2026-09-04",
+  "index": "../docs/marketing/README.md",
+  "sourceRecord": "screenshots/SOURCE.json",
+  "campaign": [
+    {"file":"cover-16x9.png","source":"cover-16x9.html","width":1920,"height":1080,"purpose":"产品封面"},
+    {"file":"feature-inspect-16x9.png","source":"feature-inspect-16x9.html","width":1920,"height":1080,"purpose":"测量、记录、取证"},
+    {"file":"feature-delivery-16x9.png","source":"feature-delivery-16x9.html","width":1920,"height":1080,"purpose":"HTML、XLSX 与前端 / Agent 交付"},
+    {"file":"social-card.png","source":"social-card.html","width":1280,"height":640,"purpose":"GitHub 社交预览"},
+    {"file":"launch-poster.png","source":"launch-poster.html","width":1080,"height":1440,"purpose":"竖版发布海报"}
+  ],
+  "deliveryPreviews": {"directory":"delivery-previews","formats":["html","xlsx","zip"],"width":270,"height":164,"scales":[1,2],"editable":"svg"},
+  "screenshots": {"directory":"screenshots","states":["inspect","record","delivery"],"fictionalData":true},
+  "license":"MIT"
+}
