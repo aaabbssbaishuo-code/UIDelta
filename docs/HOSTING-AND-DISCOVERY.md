@@ -20,6 +20,13 @@ Cloudflare Pages 等服务也会提供默认项目子域名，例如 `<project>.
 
 收录和排名由搜索引擎决定，不是买域名或提交 sitemap 后就能保证。[Google 重新抓取与索引说明](https://developers.google.com/search/docs/crawling-indexing/ask-google-to-recrawl)
 
-## 当前上线条件
+## 已上线
 
-仓库的部署流程使用 GitHub Actions。上次推送被 GitHub 拒绝，因为本机 OAuth 凭据缺少 `workflow` 权限。素材和网站已在本地准备好；完成授权并成功推送、启用 Pages 后，免费公开地址才能上线。不要将本机预览地址当作已上线的官网。
+2026-09-04 已完成 GitHub 授权并成功推送。仓库已公开，GitHub Pages 已启用并部署成功：
+
+- [GitHub 仓库](https://github.com/aaabbssbaishuo-code/UIDelta)
+- [产品官网](https://aaabbssbaishuo-code.github.io/UIDelta/)
+- [宣传材料页](https://aaabbssbaishuo-code.github.io/UIDelta/press.html)
+- [完整宣传包](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-marketing-kit.zip)
+
+官网、宣传页、插件下载包与完整宣传包均已通过公开 HTTP 访问验证。公开网站使用免费的 github.io 地址，无需购买域名。搜索引擎是否收录及何时收录仍由搜索引擎决定。

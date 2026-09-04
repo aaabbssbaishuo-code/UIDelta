@@ -1,7 +1,7 @@
 <p align="center"><img src="brand/icon-256.png" width="80" alt="UIDelta logo"></p>
 <h1 align="center">UIDelta</h1>
 <p align="center"><strong>Every UI difference deserves clear evidence.</strong><br>Open-source UI inspection, issue capture and handoff for designers.</p>
-<p align="center"><a href="README.zh-CN.md">简体中文</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/">Website & interactive demo</a> · <a href="https://github.com/aaabbssbaishuo-code/UIDelta/releases">Downloads</a> · <a href="LICENSE">MIT License</a></p>
+<p align="center"><a href="README.zh-CN.md">简体中文</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/">Website & interactive demo</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip">Downloads</a> · <a href="LICENSE">MIT License</a></p>
 
 ![UIDelta current UI — fictional project](brand/cover-16x9.png)
 
@@ -30,7 +30,7 @@ There is no account, backend or API key. Review data lives in the extension's lo
 
 ## Install
 
-1. Download `UIDelta-v0.9.4.zip` from [Releases](https://github.com/aaabbssbaishuo-code/UIDelta/releases), then unzip it.
+1. Download `UIDelta-v0.9.4.zip` from [the public download](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip), then unzip it.
 2. Open `chrome://extensions` and turn on **Developer mode**.
 3. Click **Load unpacked** and choose the `UIDelta` folder containing `manifest.json`.
 4. Pin UIDelta, refresh the webpage you want to review, and click the extension icon.

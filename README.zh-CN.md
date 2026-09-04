@@ -1,7 +1,7 @@
 <p align="center"><img src="brand/icon-256.png" width="80" alt="UIDelta Logo"></p>
 <h1 align="center">UIDelta</h1>
 <p align="center"><strong>每一处偏差，都有据可查。</strong><br>为 UI 设计师打造的开源浏览器走查工具。</p>
-<p align="center"><a href="README.md">English</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/">官网与交互演示</a> · <a href="https://github.com/aaabbssbaishuo-code/UIDelta/releases">下载插件</a> · <a href="LICENSE">MIT 开源协议</a></p>
+<p align="center"><a href="README.md">English</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/">官网与交互演示</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip">下载插件</a> · <a href="LICENSE">MIT 开源协议</a></p>
 
 ![UIDelta 新版产品封面](brand/cover-16x9.png)
 
@@ -32,7 +32,7 @@
 
 ## 安装
 
-1. 从 [Releases](https://github.com/aaabbssbaishuo-code/UIDelta/releases) 下载 `UIDelta-v0.9.4.zip` 并解压。
+1. 从 [公开下载地址](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip) 下载 `UIDelta-v0.9.4.zip` 并解压。
 2. 打开 `chrome://extensions`，开启「开发者模式」。
 3. 点击「加载已解压的扩展程序」，选择解压后包含 `manifest.json` 的 **UIDelta** 文件夹。
 4. 固定插件到工具栏，刷新待走查的网页，点击 UIDelta 图标开始。
