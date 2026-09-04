@@ -60,6 +60,18 @@ function renderFixture(style = computed(), element = {}, bounds = { width: 600, 
 }
 
 const cases = [
+  ["外边距保留负数、小数与 auto，不参与内容尺寸扣减", () => {
+    const style = computed({ marginTop:"-8.5px", marginRight:"auto", marginBottom:"16.25px", marginLeft:"4px" });
+    const box = review.layerBoxMetrics({}, style);
+    assert.deepEqual(Array.from(box.margin), [-8.5, "auto", 16.25, 4]);
+    assert.equal(box.width, 176);
+    assert.equal(box.height, 76);
+    const fixture = renderFixture(style);
+    assert.equal(fixture.node("box", "margin-top").textContent, "-8.5");
+    assert.equal(fixture.node("box", "margin-right").textContent, "auto");
+    assert.equal(fixture.node("box", "margin-right").title, "margin-right: auto");
+    assert.equal(fixture.node("box", "margin-top").title, "margin-top: -8.5px");
+  }],
   ["border-box 扣除四向内边距与边框并保留小数", () => {
     const box = review.layerBoxMetrics({}, computed({
       width: "200.5px", height: "100.25px",
@@ -113,7 +125,12 @@ const cases = [
     const color = "lab(95.8277% -6.25944 18.4191 / 0.875)";
     const shadow = "rgba(0, 0, 0, 0.24) 0px 18px 48px 0px, rgba(255, 255, 255, 0.12) 0px 1px 0px 0px inset";
     const fixture = renderFixture(computed({ fontFamily: font, color, backgroundColor: color, boxShadow: shadow }));
-    for (const [key, value] of [["font", font], ["text-color", color], ["background", color], ["shadow", shadow]]) {
+    const fontOutput = fixture.node("value", "font");
+    assert.equal(fontOutput.title, font);
+    assert.equal(fontOutput.children[0].className, "layer-font-stack");
+    assert.equal(fontOutput.children[0].children[0].textContent, "VeryLongProductFontFamilyWithoutSpacesForOverflowCoverage · +2");
+    assert.equal(fontOutput.children[0].children[1].textContent, "VeryLongProductFontFamilyWithoutSpacesForOverflowCoverage\nPingFang SC\nsans-serif");
+    for (const [key, value] of [["text-color", color], ["background", color], ["shadow", shadow]]) {
       assert.equal(fixture.value(key), value, `${key} 不应截断或错误转换颜色`);
       assert.equal(fixture.node("value", key).title, value);
     }
@@ -132,9 +149,11 @@ const cases = [
   ["盒模型四方向和值行在 250px 下允许完整换行", () => {
     const markup = review.layerPropertiesMarkup();
     assert.match(markup, /Layer properties/);
+    assert.ok(markup.indexOf('class="layer-property-list"') < markup.indexOf('class="layer-box-model"'), "盒模型放在属性列表之后");
+    assert.ok(markup.indexOf('class="layer-size-grid"') < markup.indexOf('Layer properties'), "尺寸放在盒模型标题之前");
     assert.ok(!markup.includes("—"));
     for (const side of ["top", "right", "bottom", "left"]) {
-      for (const kind of ["border", "padding"]) assert.ok(markup.includes(`data-layer-box="${kind}-${side}"`));
+      for (const kind of ["margin", "border", "padding"]) assert.ok(markup.includes(`data-layer-box="${kind}-${side}"`));
     }
     const css = review.layerPropertiesStyles();
     assert.match(css, /\.layer-property-row\s*\{[^}]*grid-template-columns:48px minmax\(0,1fr\)/);
@@ -142,6 +161,10 @@ const cases = [
     assert.match(css, /\.layer-box-content strong\s*\{[^}]*overflow-wrap:anywhere/);
     assert.ok(!css.includes("text-overflow:ellipsis"));
     assert.ok(!css.includes("white-space:nowrap"));
+    for (const color of ["#f7cca5", "#f9dfa1", "#c6d292", "#90b6c1"]) assert.ok(css.includes(color));
+    assert.match(css, /\.layer-box-margin\s*\{[^}]*border-style:dashed/);
+    assert.match(css, /\.layer-box-padding\s*\{[^}]*border-style:dashed/);
+    assert.doesNotMatch(review.brandThemeStyles(), /\.layer-box-(padding|content)\s*\{/);
   }]
 ];
 

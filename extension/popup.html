@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" translate="no" class="notranslate">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -25,7 +25,7 @@
           <p id="modeDescription">启用后即可在当前页面进行走查。</p>
         </div>
         <label class="switch" for="enabledToggle">
-          <input id="enabledToggle" type="checkbox" role="switch" />
+          <input id="enabledToggle" type="checkbox" role="switch" disabled aria-describedby="message" />
           <span class="track"><span class="thumb"></span></span>
           <span class="sr-only">启用 UIDelta 页面走查</span>
         </label>
@@ -47,10 +47,11 @@
       </section>
 
       <footer>
-        <span>从这里启用或暂停走查</span>
+        <span>从这里开启或关闭走查</span>
         <kbd>⌥ ⇧ I</kbd>
       </footer>
       <p id="message" class="message" role="status"></p>
+      <button id="retryStatus" class="retry-status" type="button" hidden>重试</button>
     </main>
     <script src="popup.js"></script>
   </body>

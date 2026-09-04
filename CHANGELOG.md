@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.4 preview update — 2026-09-04
+
+- Updates the compact editor theme, fixed action areas, delivery previews and save feedback.
+- Preserves drafts during navigation and closes races between screenshots, reference uploads and saving.
+- Adds cancellable deletion and clearing of review issues, with transactional attachment cleanup.
+- Redesigns the offline HTML report with status filters, progress and a keyboard-accessible image viewer.
+- Improves XLSX evidence previews, follow-up fields, numeric values and text safety.
+- Adds developer-facing ZIP / Codex documentation and a fourth 1920×1080 campaign graphic.
+- Passes all 155 automated tests, syntax/resource checks and package validation. All 15 runtime files match the locally loaded extension. Browser and real-export acceptance remains tracked in `docs/QA.md`.
+
 ## 0.9.4 — Open-source preview — 2026-09-03
 
 First public packaging of the existing UIDelta v0.9.4 development source.

@@ -29,6 +29,7 @@
       this.enabled = false;
       this.browseMode = false;
       this.persistedTabState = null;
+      this.tabConfigured = false;
       this.selected = null;
       this.hovered = null;
       this.modifierDown = false;
@@ -39,6 +40,7 @@
       this.issues = [];
       this.issueFilter = "all";
       this.issueSearchQuery = "";
+      this.issueDeletions = new Set();
       this.deliverySelection = new Set();
       this.deliverySelectionTouched = false;
       this.importCandidate = null;
@@ -114,16 +116,17 @@
       this.identityName = this.shadow.querySelector(".element-name");
       this.identityPath = this.shadow.querySelector(".element-path");
       this.identityLocation = this.shadow.querySelector(".element-location");
-      this.recordButton = this.shadow.querySelector("[data-action='record']");
+      this.recordButton = this.shadow.querySelector(".inspect-actions [data-action='record']");
       this.startButton = this.shadow.querySelector("[data-action='start-session']");
       this.cancelComposerButton = this.shadow.querySelector("[data-action='cancel-composer']");
       this.issueList = this.shadow.querySelector(".issue-list");
+      this.clearIssuesButton = this.shadow.querySelector("[data-action='clear-issues']");
+      this.issueDeletionStatus = this.shadow.querySelector(".issue-deletion-status");
       this.issueEmpty = this.shadow.querySelector(".issue-empty");
       this.issueCount = this.shadow.querySelector(".issue-count");
       this.issueSearch = this.shadow.querySelector(".issue-search-input");
+      this.issueSearchClear = this.shadow.querySelector("[data-action='clear-issue-search']");
       this.deliveryCount = this.shadow.querySelector(".delivery-count");
-      this.deliverySelectionList = this.shadow.querySelector(".delivery-selection-list");
-      this.deliverySelectAll = this.shadow.querySelector(".delivery-select-all");
       this.deliveryError = this.shadow.querySelector(".delivery-error");
       this.importInput = this.shadow.querySelector(".delivery-import-input");
       this.importPreview = this.shadow.querySelector(".delivery-import-preview");
@@ -174,6 +177,9 @@
       this.preview = this.shadow.querySelector(".image-preview");
       this.previewImage = this.shadow.querySelector(".image-preview-image");
       this.previewCaption = this.shadow.querySelector(".image-preview-caption");
+      this.deliveryHover = this.shadow.querySelector(".delivery-example-preview");
+      this.deliveryHoverImage = this.shadow.querySelector(".delivery-example-image");
+      this.deliveryHoverCaption = this.shadow.querySelector(".delivery-example-caption");
       this.previewPreviousButton = this.shadow.querySelector("[data-action='preview-previous']");
       this.previewNextButton = this.shadow.querySelector("[data-action='preview-next']");
       this.descriptionInput = this.shadow.querySelector(".description-input");
@@ -224,6 +230,7 @@
       window.addEventListener("message", this.onBookmarkMessage);
 
       this.shadow.addEventListener("click", this.onUiClick);
+      this.bindDeliveryExampleEvents();
       this.shadow.addEventListener("keydown", this.onShadowKeyDown);
       this.shadow.addEventListener("keyup", (event) => event.stopPropagation());
       this.shadow.querySelector(".panel-header").addEventListener("pointerdown", this.onPanelPointerDown);
@@ -254,16 +261,9 @@
         this.persistTabContext();
       });
       window.addEventListener("pagehide", () => this.persistTabContext());
-      this.shadow.addEventListener("change", (event) => {
-        const select = event.target.closest?.("[data-composer-choice]");
-        if (!select || !this.composer) return;
-        this.setComposerChoice(select.dataset.composerChoice, select.value);
-      });
       this.issueSearch.addEventListener("input", () => {
-        this.issueSearchQuery = this.issueSearch.value.trim().toLowerCase();
-        this.renderIssueList();
+        this.applyIssueSearch();
       });
-      this.deliverySelectAll?.addEventListener("change", () => this.toggleDeliverySelectAll(this.deliverySelectAll.checked));
       this.importInput?.addEventListener("change", () => this.prepareImport(this.importInput.files?.[0] || null));
       this.designFileInput.addEventListener("change", () => {
         this.designFile = this.designFileInput.files?.[0] || null;
@@ -301,6 +301,9 @@
     createOverlay() {
       const host = document.createElement("uidelta-review");
       host.setAttribute(ROOT_ATTRIBUTE, "true");
+      host.setAttribute("translate", "no");
+      host.setAttribute("lang", "zh-CN");
+      host.classList.add("notranslate");
       host.style.cssText = "all:initial;position:fixed;inset:0;z-index:2147483647;pointer-events:none;display:none";
       const shadow = host.attachShadow({ mode: "open" });
       shadow.innerHTML = [
@@ -402,6 +405,8 @@
         this.inboxCardStyles(),
         this.layerPropertiesStyles(),
         this.reviewWorkflowStyles(),
+        this.compactSurfaceStyles(),
+        this.brandThemeStyles(),
         "</style>",
         this.modeToolbarMarkup(),
         "<div class='box selected-box'></div>",
@@ -410,7 +415,7 @@
         "<div class='measurements'></div>",
         "<div class='pins-layer'></div>",
         "<div class='region-box'><i class='region-handle' data-region-handle='nw'></i><i class='region-handle' data-region-handle='ne'></i><i class='region-handle' data-region-handle='sw'></i><i class='region-handle' data-region-handle='se'></i><button class='region-confirm' data-action='record-region'>记录 <kbd>R</kbd></button></div><button class='record-prompt' data-action='record'>＋ 记录 <kbd>R</kbd></button><div class='capture-feedback'><i class='capture-feedback-context'></i><i class='capture-feedback-detail'></i></div>",
-        "<aside class='ui-editor' aria-label='UIDelta UI 本地试改'><header class='ui-editor-header'><div class='ui-editor-heading'><h2 class='ui-editor-title'>选择页面元素</h2><p class='ui-editor-meta'><span class='ui-editor-meta-label'>UI 模式</span> · <span class='ui-editor-status'>本地预览</span></p></div><div class='ui-editor-header-actions'><button class='ui-editor-toggle' data-action='preview-same-type' aria-pressed='false'>同类元素</button><button class='ui-editor-reset' data-action='reset-preview' aria-label='撤销本地试改' title='撤销本地试改'>↶</button></div></header><div class='ui-editor-body'><div class='ui-editor-empty'><strong>悬停页面元素</strong>右侧会显示可编辑属性；所有修改仅在当前页面预览，可随时撤销。</div><div class='ui-editor-content' hidden><section class='ui-editor-section ui-editor-layout-section'><span class='ui-editor-section-title'>布局</span><span class='ui-editor-group-label'>尺寸</span><div class='ui-editor-fields' data-ui-section='dimensions'></div><span class='ui-editor-group-label after-fields'>对齐与间距</span><div class='ui-editor-fields' data-ui-section='layout'></div></section><section class='ui-editor-section'><span class='ui-editor-section-title'>外观</span><div class='ui-editor-fields' data-ui-section='appearance'></div></section><section class='ui-editor-section'><span class='ui-editor-section-title'>文字</span><div class='ui-editor-fields' data-ui-section='typography'></div></section><section class='ui-editor-section'><span class='ui-editor-section-title'>填充</span><div class='ui-editor-fields' data-ui-section='fill'></div></section><section class='ui-editor-section ui-editor-text-section' hidden><span class='ui-editor-section-title'>文本内容</span><div class='ui-editor-fields' data-ui-section='text'></div></section><button class='ui-editor-advanced-action' data-action='toggle-preview-properties'>＋ 显示高级属性</button><section class='ui-editor-section ui-editor-advanced-section' hidden><span class='ui-editor-section-title'>高级属性</span><div class='ui-editor-fields' data-ui-section='advanced'></div></section><div class='ui-editor-delta'></div><div class='ui-editor-candidates'></div><div class='ui-editor-footer'><button class='secondary-button' data-action='reset-preview'>撤销预览</button><button class='primary-button' data-action='record' disabled>加入走查</button></div></div></div></aside>",
+        "<aside class='ui-editor' aria-label='UIDelta UI 本地试改'><header class='ui-editor-header'><div class='ui-editor-heading'><h2 class='ui-editor-title'>选择页面元素</h2><p class='ui-editor-meta'><span class='ui-editor-meta-label'>UI 模式</span> · <span class='ui-editor-status'>本地预览</span></p></div><div class='ui-editor-header-actions'><button class='ui-editor-toggle' data-action='preview-same-type' aria-pressed='false'>同类元素</button><button class='ui-editor-reset' data-action='reset-preview' aria-label='撤销本地试改' title='撤销本地试改'>↶</button></div></header><div class='ui-editor-body'><div class='ui-editor-empty'><strong>悬停页面元素</strong>右侧会显示可编辑属性；所有修改仅在当前页面预览，可随时撤销。</div><div class='ui-editor-content' hidden><section class='ui-editor-section ui-editor-layout-section'><span class='ui-editor-section-title'>布局</span><span class='ui-editor-group-label'>尺寸</span><div class='ui-editor-fields' data-ui-section='dimensions'></div><span class='ui-editor-group-label after-fields'>对齐与间距</span><div class='ui-editor-fields' data-ui-section='layout'></div></section><section class='ui-editor-section ui-editor-spacing-section' aria-label='间距与内边距'><span class='ui-editor-section-title'>间距与内边距</span><div class='ui-editor-fields' data-ui-section='spacing'></div></section><section class='ui-editor-section'><span class='ui-editor-section-title'>外观</span><div class='ui-editor-fields' data-ui-section='appearance'></div></section><section class='ui-editor-section'><span class='ui-editor-section-title'>文字</span><div class='ui-editor-fields' data-ui-section='typography'></div></section><section class='ui-editor-section'><span class='ui-editor-section-title'>填充</span><div class='ui-editor-fields' data-ui-section='fill'></div></section><section class='ui-editor-section ui-editor-text-section' hidden><span class='ui-editor-section-title'>文本内容</span><div class='ui-editor-fields' data-ui-section='text'></div></section><button class='ui-editor-advanced-action' data-action='toggle-preview-properties'>＋ 显示高级属性</button><section class='ui-editor-section ui-editor-advanced-section' hidden><span class='ui-editor-section-title'>高级属性</span><div class='ui-editor-fields' data-ui-section='advanced'></div></section><div class='ui-editor-delta'></div><div class='ui-editor-candidates'></div><div class='ui-editor-footer'><button class='secondary-button' data-action='reset-preview'>撤销预览</button><button class='primary-button' data-action='record' disabled>加入走查</button></div></div></div></aside>",
         "<aside class='panel' aria-label='UIDelta 走查工具'>",
         "  <header class='panel-header'>",
         "    <span class='drag-grip' aria-hidden='true'>⋮⋮</span><span class='status-dot'></span><strong class='brand'>UIDelta</strong><span class='panel-mode'>Record</span><span class='header-spacer'></span>",
@@ -430,40 +435,46 @@
         "      <div class='paused-actions'><button class='primary-button' data-action='resume-session'>继续走查</button><button class='secondary-button' data-action='open-inbox'>查看问题</button></div>",
         "    </section>",
         "    <section class='view inspect-view' data-view='inspect'>",
+        "      <div class='inspect-scroll'>",
         "      <p class='mode-hint'>点击元素后固定，按 R 记录。</p>",
         "      <section class='identity'><div class='identity-row'><span class='element-kind'>—</span><span class='element-name'>点击选择元素</span></div><p class='element-path'>未选择元素</p><p class='element-location'>页面位置 —</p></section>",
         this.layerPropertiesMarkup(),
         "      <section class='compare-strip' aria-label='Figma Compare'><div class='compare-copy'><span class='compare-kicker'>COMPARE</span><span class='compare-source'>未绑定设计</span></div><button class='ghost-button compare-bind' data-action='bind-design'>绑定设计</button></section>",
         "      <section class='compare-result' hidden><div class='compare-match'></div><div class='compare-candidates'></div><div class='compare-diffs'></div></section>",
         "      <section class='design-binding' hidden><div class='binding-head'><div><span class='compare-kicker'>DESIGN SOURCE</span><strong>绑定 Figma Frame</strong></div><button class='icon-button' data-action='close-design-binding' aria-label='关闭设计绑定'>×</button></div><label class='field'><span class='field-label'>Figma Frame URL</span><input class='figma-url-input' type='url' placeholder='https://www.figma.com/design/...'></label><label class='field file-field'><span class='field-label'>Design Snapshot JSON</span><input class='design-file-input' type='file' accept='.json,application/json'><span class='design-file-name'>未选择快照文件</span></label><p class='binding-hint'>从 Figma 导出的 JSON 会在本地规范化并缓存；只绑定链接也可以稍后补充快照。</p><p class='design-error' role='alert'></p><div class='composer-actions'><button class='ghost-button' data-action='clear-design'>解除绑定</button><button class='primary-button' data-action='save-design'>保存设计源</button></div></section>",
-        "      <div class='inspect-actions'><button class='primary-button' data-action='record' disabled>＋ <span class='record-label'>记录问题</span> <span aria-hidden='true'>R</span></button><button class='secondary-button' data-action='open-inbox' aria-label='打开问题列表'>问题 <span class='inline-count'>0</span></button></div>",
+        "      </div><footer class='inspect-footer'><div class='inspect-actions'><button class='primary-button' data-action='record' disabled><svg class='record-plus' viewBox='0 0 24 24' width='14' height='14' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' aria-hidden='true' focusable='false'><path d='M12 5v14M5 12h14'/></svg><span class='record-label'>记录问题</span></button><button class='secondary-button' data-action='open-inbox' aria-label='打开问题列表'>问题 <span class='inline-count'>0</span></button></div>",
         "      <div class='help-row'><span><kbd>R</kbd>记录</span><span><kbd>Esc</kbd>收起</span></div>",
+        "      </footer>",
         "    </section>",
         "    <section class='view composer-view' data-view='composer'>",
         "      <div class='composer-scroll'>",
         "      <div class='composer-head'><div class='composer-topline'><span class='composer-id'>UI-001</span><button class='capture-state' data-action='retry-capture' type='button' disabled>正在保存证据</button></div><p class='composer-element'>未选择元素</p><p class='composer-compare'>未绑定设计</p><div class='composer-diffs' hidden></div></div>",
-        "      <div class='evidence-strip' aria-label='已截取证据'></div><div class='field'><span class='field-label'>问题描述</span><textarea class='description-input' autofocus placeholder='例如：按钮宽度应为 110px，目前显得过宽。'></textarea><label class='description-upload'>▧ 插入参考图片<input class='reference-image-input' type='file' accept='image/*' multiple></label><div class='reference-list'></div></div>",
+        "      <div class='evidence-strip' aria-label='已截取证据'></div><div class='field'><span class='field-label' id='uidelta-description-label'>问题描述</span><textarea class='description-input' aria-labelledby='uidelta-description-label' aria-describedby='uidelta-composer-error' autofocus placeholder='例如：按钮宽度应为 110px，目前显得过宽。'></textarea><label class='description-upload'>▧ 插入参考图片<input class='reference-image-input' type='file' accept='image/*' multiple></label><div class='reference-list'></div></div>",
         this.composerChoicesMarkup(),
-        "      <p class='composer-error' role='alert'></p></div><div class='composer-actions'><button class='ghost-button' data-action='cancel-composer'>返回检查</button><button class='primary-button' data-action='save-issue'>保存并继续</button></div>",
+        "      <p class='composer-error' id='uidelta-composer-error' role='alert'></p></div><div class='composer-actions'><button class='ghost-button' data-action='cancel-composer'>返回检查</button><button class='primary-button' data-action='save-issue'>保存并继续</button></div>",
         "    </section>",
         "    <section class='view inbox-view' data-view='inbox'>",
-        "      <div class='inbox-toolbar'><h2 class='inbox-title'>本次走查</h2><p class='inbox-meta'><span class='issue-count'>0</span> 个已记录问题</p></div>",
-        "      <label class='inbox-search'><span aria-hidden='true'>⌕</span><input class='issue-search-input' type='search' placeholder='搜索描述、编号、页面或元素' aria-label='搜索问题'></label>",
+        "      <div class='inbox-head'>",
+        "      <div class='inbox-toolbar'><div class='inbox-heading'><h2 class='inbox-title'>本次走查</h2><button type='button' class='ghost-button clear-issues' data-action='clear-issues' title='清空本次走查的全部问题与截图，不受筛选影响' aria-label='清空本次走查的全部问题与截图'>清空</button></div><p class='inbox-meta'><span class='issue-count'>0</span> 个已记录问题</p></div>",
+        "      <p class='issue-deletion-status' role='status' aria-live='polite' aria-atomic='true'></p>",
+        "      <div class='inbox-search' role='search'><svg class='search-icon' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.75' stroke-linecap='round' aria-hidden='true'><circle cx='10.75' cy='10.75' r='6.75'/><path d='m16 16 4.5 4.5'/></svg><input class='issue-search-input' type='search' placeholder='搜索问题' aria-label='搜索描述、编号、页面或元素' autocomplete='off' spellcheck='false'><button type='button' class='search-clear' data-action='clear-issue-search' aria-label='清除搜索' title='清除搜索' hidden><svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.75' stroke-linecap='round' aria-hidden='true'><path d='m7 7 10 10M17 7 7 17'/></svg></button></div>",
         "      <div class='filter-row' aria-label='筛选问题'><button class='filter active' data-filter='all' aria-pressed='true'>全部</button><button class='filter' data-filter='page' aria-pressed='false'>本页</button><button class='filter' data-filter='ui' aria-pressed='false'>UI</button><button class='filter' data-filter='functional' aria-pressed='false'>功能</button><button class='filter' data-filter='content' aria-pressed='false'>文案</button></div>",
-        "      <div class='issue-list'></div><div class='issue-empty'><span class='empty-mark'>◎</span><strong>还没有问题</strong><span>回到页面，选择元素后记录。</span></div>",
+        "      </div><div class='inbox-scroll'><div class='issue-list'></div><div class='issue-empty'><span class='empty-mark' aria-hidden='true'>◎</span><strong>还没有问题</strong><span class='empty-hint'>选中元素后按 R 记录。</span></div></div>",
         "      <div class='inbox-actions'><button class='secondary-button' data-action='back-inspect'>返回检查</button><button class='ghost-button' data-action='end-session'>结束走查</button><button class='primary-button' data-action='open-deliver'>交付…</button></div>",
         "    </section>",
         "    <section class='view deliver-view' data-view='deliver'>",
+        "      <div class='delivery-scroll'>",
         "      <div class='delivery-intro'><h2 class='delivery-title'>交付本次走查</h2><p class='delivery-copy'>同一份证据按接收者交付：协作报告、排期表或可直接交给 Codex 的证据包。</p></div>",
-        "      <div class='delivery-selection'><span class='delivery-count'>0 个问题已选择</span><label class='delivery-select-label'><input class='delivery-select-all' type='checkbox'> 全选</label><button class='ghost-button delivery-delete-button' data-action='delete-delivery-selected'>删除所选</button></div><div class='delivery-selection-list'></div>",
-        "      <div class='delivery-card-grid'><article class='delivery-card'><span class='delivery-card-icon' aria-hidden='true'>▤</span><div class='delivery-card-copy'><strong>协作问题单</strong><span>HTML · 看图、筛选、勾选处理状态，并导出状态更新 JSON。</span></div><button class='secondary-button' data-action='deliver-html'>导出 HTML</button></article><article class='delivery-card'><span class='delivery-card-icon' aria-hidden='true'>▦</span><div class='delivery-card-copy'><strong>排期问题表</strong><span>XLSX · 一行一个问题，含优先级、影响、页面与证据文件名。</span></div><button class='secondary-button' data-action='deliver-xlsx'>导出 XLSX</button></article><article class='delivery-card'><span class='delivery-card-icon' aria-hidden='true'>⌘</span><div class='delivery-card-copy'><strong>给 Agent / 前端</strong><span>ZIP · JSON、完整截图、元素锚点、样式、差异与试改建议。</span></div><div class='delivery-agent-actions'><button class='ghost-button' data-action='copy-agent'>复制给 Codex</button><button class='primary-button' data-action='deliver-zip'>导出 ZIP</button></div></article></div>",
+        "      <p class='delivery-count' role='status'>导出本次全部问题</p>",
+        this.deliveryCardsMarkup(),
         "      <section class='delivery-import'><h3 class='delivery-section-title'>安全导入 UIDelta 交付包</h3><p class='delivery-section-copy'>只接受 UIDelta JSON 或未压缩的 UIDelta ZIP；先预览、去重，再确认导入。HTML 和 XLSX 为单向交付文件。</p><label class='delivery-import-label'>＋ 选择 UIDelta JSON / ZIP<input class='delivery-import-input' type='file' accept='.json,.zip,application/json,application/zip'></label><p class='delivery-error' role='alert'></p><div class='delivery-import-preview' hidden></div></section>",
-        "      <div class='delivery-actions'><button class='secondary-button' data-action='back-inbox'>返回清单</button><button class='primary-button' data-action='deliver-zip'>导出所选 Agent 证据包</button></div>",
+        "      </div><footer class='delivery-actions'><button class='secondary-button' data-action='back-inbox'>返回清单</button><button class='primary-button' data-action='deliver-zip'>导出 ZIP</button></footer>",
         "    </section>",
         "  </div>",
         "</aside>",
         "<button class='review-dock' data-action='restore-panel' aria-label='打开本次走查'><span class='status-dot'></span><span>已记录</span><span class='dock-count'>0</span><span class='dock-candidates'>候选 0</span></button>",
         "<div class='toast' role='status' aria-live='polite'></div>",
+        "<div class='delivery-example-preview' id='uidelta-delivery-example' role='tooltip' hidden><img class='delivery-example-image' alt='' hidden><span class='delivery-example-caption'></span></div>",
         "<div class='image-preview' hidden><div class='image-preview-backdrop' data-action='close-preview'></div><figure class='image-preview-dialog' role='dialog' aria-modal='true' aria-label='截图预览'><button class='image-preview-close' data-action='close-preview' aria-label='关闭预览'>×</button><button class='image-preview-nav previous' data-action='preview-previous' aria-label='查看上一张截图'>‹</button><img class='image-preview-image' alt='截图预览'><button class='image-preview-nav next' data-action='preview-next' aria-label='查看下一张截图'>›</button><figcaption class='image-preview-caption'></figcaption></figure></div>"
       ].join("");
       this.localizeOverlay(shadow);
@@ -471,20 +482,130 @@
       return host;
     }
 
+    compactSurfaceStyles() {
+      return `
+        :host { --ud-button-height:28px; --ud-button-font:12px; }
+        :is(.panel,.ui-editor) button:is(.primary-button,.secondary-button,.ghost-button,.compare-bind),
+        .panel .row-action,.panel .description-upload,.panel .delivery-import-label,.record-prompt,.region-confirm {
+          height:var(--ud-button-height)!important; min-height:var(--ud-button-height)!important;
+          padding:0 8px!important; gap:5px; font-size:var(--ud-button-font)!important; line-height:1.2; font-weight:500;
+        }
+        .panel .icon-button,.ui-editor .icon-button { width:28px; height:28px; min-height:28px; padding:5px; }
+        .panel button:is(.segment,.filter) { min-height:28px!important; height:28px!important; padding:0 6px!important; font-size:11px!important; }
+        .panel-header { height:48px; min-height:48px; }
+        .panel:has(:is(.inspect-view,.deliver-view).active) .panel-body { height:calc(100% - 48px); max-height:none; overflow:hidden; }
+        :is(.inspect-view,.deliver-view).active { display:flex; flex-direction:column; height:100%; min-height:0; padding:0; }
+        .inspect-scroll,.delivery-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:12px 14px; scrollbar-width:thin; }
+        .inspect-footer,.deliver-view>.delivery-actions { flex:none; position:static; margin:0; padding:10px 14px; border-top:1px solid var(--ud-border); background:var(--ud-surface); }
+        .inspect-footer .inspect-actions { padding:0; grid-template-columns:minmax(0,1fr) auto; gap:6px; }
+        .inspect-actions [data-action='record'] { display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+        .record-plus { display:block; width:14px; height:14px; flex:none; pointer-events:none; }
+        .inspect-footer .help-row { margin:7px 0 0; padding:0; font-size:10px; }
+        .inspect-footer kbd { font-size:9px; padding:1px 3px; }
+        .deliver-view>.delivery-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+        .deliver-view>.delivery-actions>.primary-button { grid-column:auto; }
+        .delivery-card .delivery-card-actions { display:grid; grid-template-columns:1fr 1fr; grid-column:1/-1; gap:6px; }
+        .delivery-card .delivery-agent-actions { grid-column:1/-1; }
+        .delivery-card .delivery-example { grid-column:1/-1; justify-self:start; color:var(--ud-accent-text); }
+        .delivery-card-actions .delivery-example { grid-column:auto; justify-self:stretch; }
+        .delivery-example-preview { position:fixed; z-index:19; width:min(300px,calc(100vw - 24px)); max-height:calc(100vh - 24px); margin:0; padding:6px; border:1px solid var(--ud-border-strong); border-radius:var(--ud-panel-radius); background:var(--ud-surface); color:var(--ud-text-secondary); box-shadow:var(--ud-shadow); pointer-events:auto; }
+        .delivery-example-preview[hidden],.delivery-example-image[hidden] { display:none!important; }
+        .delivery-example-image { display:block; width:100%; max-height:min(60vh,220px); object-fit:contain; border-radius:4px; }
+        .delivery-example-caption { display:block; padding:6px 2px 0; font:400 11px/1.4 var(--ud-font); }
+        .delivery-card-grid { padding-bottom:12px; }
+      `;
+    }
+
+    brandThemeStyles() {
+      // Reference palette: orange mark + charcoal/olive editor. Keep this last
+      // so all existing views share one theme without changing their behavior.
+      // Measured page colors and success/warning/error semantics stay intact.
+      return `
+        :host {
+          color-scheme:dark;
+          --ud-canvas:#1b1d1c; --ud-surface:#222423; --ud-elevated:#2e312c; --ud-inset:#1b1d1c;
+          --ud-hover:#393c35; --ud-selected:#3d4237; --ud-border:#3a3e35; --ud-border-strong:#606958;
+          --ud-text:#f2f3ed; --ud-text-secondary:#c1c6b8; --ud-text-muted:#adb5a2;
+          --ud-accent:#f2603d; --ud-accent-hover:#ff7957; --ud-accent-soft:rgba(242,96,61,.14);
+          --ud-on-accent:#1b1d1c; --ud-accent-text:#ff9b80; --ud-focus:#ff9b80;
+          --ud-focus-soft:rgba(242,96,61,.24); --ud-radius:4px; --ud-panel-radius:8px;
+          --ud-shadow:0 6px 22px rgba(0,0,0,.22); --surface-hover:var(--ud-hover);
+        }
+        .panel,.ui-editor,.image-preview-dialog { border-radius:var(--ud-panel-radius)!important; box-shadow:var(--ud-shadow)!important; -webkit-backdrop-filter:none; backdrop-filter:none; }
+        .panel-header,.ui-editor-header { background:var(--ud-surface)!important; }
+        .panel-mode,.ui-editor-title,.start-title,.delivery-title,.inbox-title { font-weight:600!important; letter-spacing:0; }
+        .start-title,.delivery-title,.inbox-title { font-size:16px; }
+        .ui-editor-section-title,.layer-properties-title { font-size:12px!important; font-weight:500!important; color:var(--ud-text-secondary)!important; }
+        .ui-editor-section,.ui-editor-section:first-child { padding:10px 0!important; }
+        .eyebrow,.compare-kicker,.element-kind,.composer-id,.preview-status,.delivery-card-icon,.paused-mark { color:var(--ud-accent-text); }
+        .element-name,.composer-element,.preview-title,.binding-head strong,.composer-diff,.preview-candidate,.compare-candidate { color:var(--ud-text); }
+        .element-path,.element-location,.composer-compare,.compare-candidate-meta,.capture-state,.ui-editor-empty,.ui-editor-empty strong,.design-file-name,.design-file-input { color:var(--ud-text-muted); }
+        .primary-button,.ui-editor-footer .primary-button,.primary-button.has-measurement { background:var(--ud-accent)!important; border-color:var(--ud-accent)!important; color:var(--ud-on-accent)!important; box-shadow:none!important; }
+        .primary-button:hover,.primary-button:focus-visible,.ui-editor-footer .primary-button:hover,.ui-editor-footer .primary-button:focus-visible { background:var(--ud-accent-hover)!important; border-color:var(--ud-accent-hover)!important; }
+        .primary-button,.secondary-button,.ghost-button,.compare-bind,.region-confirm,.record-prompt,.composer-view>.composer-actions button,.ui-editor-footer button { border-radius:var(--ud-radius)!important; }
+        .primary-button,.secondary-button,.ghost-button { font-size:12px; font-weight:500; }
+        .secondary-button,.compare-bind,.description-upload,.delivery-import-label { border-color:var(--ud-border); background:var(--ud-elevated); color:var(--ud-text-secondary); box-shadow:none; }
+        .secondary-button:hover,.ghost-button:hover,.icon-button:hover,.compare-bind:hover,.description-upload:hover,.row-action:hover { background:var(--ud-hover); border-color:var(--ud-border-strong); color:var(--ud-text); }
+        button:focus-visible,.description-upload:focus-within,.issue-select:focus-visible { outline:2px solid var(--ud-focus)!important; outline-offset:2px; }
+        .icon-button,.ui-editor-toggle,.ui-editor-reset,.ui-editor-advanced-action { border-radius:var(--ud-radius)!important; }
+        .figma-url-input,.description-input,.ui-editor-field input,.ui-editor-field select,.ui-editor-field textarea,.preview-field input,.inbox-search,.ui-number-control { border-color:var(--ud-border)!important; border-radius:var(--ud-radius)!important; background:var(--ud-elevated)!important; color:var(--ud-text)!important; box-shadow:none; }
+        .description-input:focus,.figma-url-input:focus,.ui-editor-field input:focus,.ui-editor-field select:focus,.ui-editor-field textarea:focus,.preview-field input:focus,.inbox-search:focus-within { border-color:var(--ud-focus)!important; outline:0; box-shadow:0 0 0 2px var(--ud-focus-soft)!important; }
+        .ui-number-control:focus-within { border-color:var(--ud-focus)!important; outline-color:var(--ud-focus); }
+        .ui-editor-field .ui-number-control input,.ui-editor-field .ui-number-control input:focus { background:transparent!important; box-shadow:none!important; }
+        .description-input::placeholder,.ui-editor-field input::placeholder { color:var(--ud-text-muted); }
+        .ui-color-swatch,.ui-editor-delta { border-radius:var(--ud-radius)!important; }
+        .ui-color-swatch { background:repeating-conic-gradient(var(--ud-border-strong) 0% 25%,var(--ud-elevated) 0% 50%) 50%/8px 8px; }
+        .ui-editor-field input[type='range'].ui-opacity-range { background:transparent!important; border-radius:0!important; box-shadow:none!important; }
+        .ui-opacity-range::-webkit-slider-runnable-track { background:linear-gradient(90deg,var(--ud-accent) 0 var(--uidelta-range-progress,100%),var(--ud-border-strong) var(--uidelta-range-progress,100%) 100%); }
+        .ui-opacity-range::-webkit-slider-thumb { border-color:var(--ud-text)!important; background:var(--ud-accent)!important; }
+        .mode-toolbar { border-color:var(--ud-border); border-radius:var(--ud-panel-radius); background:var(--ud-inset); box-shadow:var(--ud-shadow); -webkit-backdrop-filter:none; backdrop-filter:none; }
+        .mode-toolbar button,.mode-toolbar .mode-issue-count { border-radius:var(--ud-radius); color:var(--ud-text-secondary); }
+        .mode-toolbar button:hover,.mode-toolbar button:focus-visible,.mode-toolbar .mode-issue-count:hover,.mode-toolbar .mode-issue-count:focus-visible { background:var(--ud-hover); color:var(--ud-text); border-color:var(--ud-border-strong); }
+        .mode-toolbar button.active { background:var(--ud-selected); color:var(--ud-text); box-shadow:inset 0 -2px var(--ud-accent); }
+        .mode-toolbar .mode-drag-handle::after { background:var(--ud-border-strong); }
+        .mode-toolbar button[data-tooltip]::before { border-color:var(--ud-border-strong); border-radius:var(--ud-radius); background:var(--ud-inset); color:var(--ud-text); box-shadow:var(--ud-shadow); }
+        .mode-switch,.filter-row { border-radius:var(--ud-radius); background:var(--ud-inset); }
+        .segment,.filter,.composer-choice .segment { border-color:var(--ud-border); border-radius:var(--ud-radius); background:var(--ud-elevated); color:var(--ud-text-secondary); }
+        .segment.active,.filter.active,.composer-choice .segment.active,.preview-candidate.active,.compare-candidate.active,.ui-editor-toggle.active { border-color:var(--ud-accent)!important; background:var(--ud-accent-soft)!important; color:var(--ud-text)!important; }
+        .segment:hover,.filter:hover,.composer-choice .segment:hover { background:var(--ud-hover); color:var(--ud-text); }
+        .issue-select { border-color:var(--ud-border-strong); background:var(--ud-inset); }
+        .issue-select:checked { border-color:var(--ud-accent); background:var(--ud-accent); color:var(--ud-on-accent); box-shadow:none; }
+        .issue-select:checked:after { color:var(--ud-on-accent); }
+        .delivery-selection-item input,.delivery-select-all input { accent-color:var(--ud-accent); }
+        .inbox-view .issue-row,.delivery-card,.delivery-selection-item,.delivery-import-label { border-radius:var(--ud-radius); box-shadow:none; }
+        .delivery-card:hover { background:var(--ud-hover); border-color:var(--ud-border-strong); }
+        .delivery-card-icon { border-radius:var(--ud-radius); background:var(--ud-accent-soft); }
+        .evidence-thumb,.composer-view .evidence-thumb,.inbox-view .issue-shot,.review-dock,.toast { border-radius:var(--ud-radius); }
+        .toast,.review-dock { background:var(--ud-surface); color:var(--ud-text); box-shadow:var(--ud-shadow); }
+        .record-prompt,.region-confirm { background:var(--ud-elevated); color:var(--ud-text); box-shadow:var(--ud-shadow); -webkit-backdrop-filter:none; backdrop-filter:none; }
+        .selected-box,.selected-box.ui-selected,.region-box { border-color:var(--ud-accent); background:rgba(242,96,61,.06); }
+        .hover-box { border-color:var(--ud-accent); background:rgba(242,96,61,.03); }
+        .region-handle,.pin:not(.major) { background:var(--ud-accent); color:var(--ud-on-accent); }
+        .pin,.pin:hover { box-shadow:0 2px 6px rgba(0,0,0,.24); }
+        .tooltip { border-color:#e4ac96; border-radius:var(--ud-radius); background:#fff0e8; color:#5c2a1e; box-shadow:0 3px 10px rgba(92,42,30,.14); }
+        .capture-feedback-detail { border-color:var(--ud-accent); }
+        .record-flight { border-color:var(--ud-accent); background:var(--ud-elevated); color:var(--ud-text); box-shadow:var(--ud-shadow); }
+        .help-row kbd,.record-prompt kbd,.region-confirm kbd { border-radius:3px; }
+        @keyframes ui-number-pulse { 0% { box-shadow:0 0 0 2px var(--ud-focus-soft); } 100% { box-shadow:none; } }
+      `;
+    }
+
     editorPolishStyles() {
       // Final component rules. Geometry and input states live together so
       // legacy generic input styles cannot turn a range track into a textbox.
       return `
         :host { --ud-font:Inter,'PingFang SC','Microsoft YaHei',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
-        .primary-button { background:#5265ce; color:#fff; box-shadow:none; }
-        .primary-button:hover,.primary-button:focus-visible { background:#586bd2; }
-        .ui-editor-footer .primary-button { background:#5265ce!important; }
-        .ui-editor-footer .primary-button:hover,.ui-editor-footer .primary-button:focus-visible { background:#586bd2!important; }
+        .primary-button { background:var(--ud-accent); color:var(--ud-on-accent); box-shadow:none; }
+        .primary-button:hover,.primary-button:focus-visible { background:var(--ud-accent-hover); }
+        .ui-editor-footer .primary-button { background:var(--ud-accent)!important; }
+        .ui-editor-footer .primary-button:hover,.ui-editor-footer .primary-button:focus-visible { background:var(--ud-accent-hover)!important; }
         .panel { top:24px; bottom:auto; }
         .panel-header .brand,.panel-header .header-spacer { display:none; }
         .panel-header .panel-mode { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:var(--ud-text); }
         .panel-header .icon-button { width:28px; height:28px; flex:none; }
         .icon-button svg { display:block; width:18px; height:18px; flex:none; overflow:visible; }
+        .delivery-card-icon svg { display:block; width:20px; height:20px; flex:none; }
+        .delivery-count { margin:12px 0; line-height:1.5; }
         .issue-row { grid-template-columns:18px 68px minmax(0,1fr); }
         .issue-row .row-actions { grid-column:2/-1; justify-content:flex-end; gap:6px; }
         .issue-row .row-action { width:28px; height:28px; border-radius:6px; }
@@ -538,11 +659,18 @@
         .mode-toolbar .mode-drag-handle:active { cursor:grabbing; transform:none; }
         .mode-toolbar .mode-icon { display:block; width:20px; height:20px; flex:none; overflow:visible; filter:none; opacity:1; }
         .mode-toolbar .mode-issue-count { display:grid; width:30px; height:30px; min-width:30px; font-size:11px; }
+        .mode-count-value,.mode-count-previous { grid-area:1/1; pointer-events:none; font-variant-numeric:tabular-nums; }
+        .mode-count-previous { position:absolute; inset:0; display:grid; place-items:center; }
+        .mode-count-halo { position:absolute; inset:-3px; border:2px solid var(--ud-accent); border-radius:6px; pointer-events:none; }
+        .mode-count-increment { position:absolute; bottom:calc(100% + 7px); left:50%; margin-left:-14px; width:28px; padding:3px 0; border-radius:4px; background:var(--ud-accent); color:var(--ud-on-accent); font:600 11px/1 var(--ud-font); pointer-events:none; }
+        .mode-toolbar .mode-issue-count.is-count-increasing { color:var(--ud-accent-text); }
+        .mode-toolbar .mode-issue-count.is-count-increasing::before { visibility:hidden; }
+        .mode-save-status { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; pointer-events:none; }
         .mode-toolbar button[data-tooltip]::before { top:auto; bottom:calc(100% + 12px); max-width:140px; line-height:1.3; }
         .mode-toolbar.tooltips-below button[data-tooltip]::before { top:calc(100% + 10px); bottom:auto; }
         .mode-toolbar button[data-mode='ui']::before { left:0; transform:none!important; }
         .mode-toolbar button[data-mode='region']::before { right:0; left:auto; transform:none!important; }
-        .mode-toolbar button:focus-visible { outline:2px solid #a5b1ff; outline-offset:2px; }
+        .mode-toolbar button:focus-visible { outline:2px solid var(--ud-focus); outline-offset:2px; }
         .toast { bottom:84px; }
         @media(max-width:480px) {
           .panel,.ui-editor { top:12px!important; left:auto!important; right:12px!important; width:min(250px,calc(100vw - 24px))!important; height:min(560px,calc(100vh - 96px))!important; }
@@ -556,7 +684,7 @@
 
     reviewWorkflowStyles() {
       return `
-        .panel:has(.composer-view.active) .panel-body { height:calc(100% - 48px); max-height:none; overflow:hidden; }
+        .panel:has(.composer-view.active,.inbox-view.active) .panel-body { height:calc(100% - 48px); max-height:none; overflow:hidden; }
         .composer-view.active { display:flex; flex-direction:column; height:100%; min-height:0; padding:0; }
         .composer-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:12px 14px; scrollbar-width:thin; }
         .composer-view .composer-head { padding-bottom:8px; border:0; }
@@ -572,21 +700,37 @@
         .composer-view .evidence-thumb img { object-fit:contain; }
         .composer-view .evidence-placeholder { display:flex; align-items:center; justify-content:center; color:var(--ud-text-muted); font-size:10px; cursor:default; }
         .composer-view .evidence-placeholder span { position:static; background:none; }
-        .composer-view .evidence-thumb:focus-visible { outline:2px solid #a5b1ff; outline-offset:2px; }
+        .composer-view .evidence-thumb:focus-visible { outline:2px solid var(--ud-focus); outline-offset:2px; }
         .composer-view .field { padding:8px 0 10px; border:0; }
         .composer-view .field-label { margin-bottom:6px; font-size:11px; color:var(--ud-text-secondary); }
         .composer-view .description-input { min-height:86px; height:86px; padding:8px; border-radius:7px; font:12px/1.55 var(--ud-font); }
         .composer-view .description-input::placeholder { color:var(--ud-text-muted); }
         .composer-view .description-upload { min-height:28px; height:28px; margin-top:8px; padding:0 8px; border-radius:6px; font-size:11px; }
-        .composer-view .description-upload:focus-within { outline:2px solid #a5b1ff; outline-offset:2px; }
-        .composer-choices { display:grid; gap:8px; padding:8px 0 0; }
-        .composer-choice { display:grid; grid-template-columns:68px minmax(0,1fr); align-items:center; gap:8px; min-width:0; font-size:11px; color:var(--ud-text-secondary); }
-        .composer-choice select { width:100%; min-width:0; height:28px; min-height:28px; padding:0 7px; border:1px solid var(--ud-border); border-radius:6px; background:var(--ud-elevated); color:var(--ud-text); font:12px var(--ud-font); color-scheme:dark; }
-        .composer-choice select:focus-visible { outline:2px solid #a5b1ff; outline-offset:1px; }
+        .composer-view .description-upload:focus-within { outline:2px solid var(--ud-focus); outline-offset:2px; }
+        .composer-choices { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; padding:8px 0 0; }
+        .composer-choice { min-width:0; }
+        .composer-choice-label { margin-bottom:6px; font-size:11px; font-weight:600; color:var(--ud-text-secondary); }
+        .composer-choice .segments { gap:4px; }
+        .composer-choice .segments[data-segments='priority'] { grid-template-columns:repeat(4,minmax(0,1fr)); }
+        .composer-choice .segment { min-width:0; min-height:28px; padding:5px 4px; border:1px solid var(--ud-border); border-radius:6px; background:var(--ud-elevated); color:var(--ud-text-secondary); font:500 12px/16px var(--ud-font); overflow-wrap:anywhere; cursor:pointer; }
+        .composer-choice .segment:hover { border-color:var(--ud-border-strong); color:var(--ud-text); }
+        .composer-choice .segment.active { border-color:var(--ud-accent); background:var(--ud-accent-soft); color:var(--ud-text); }
+        .composer-choice .segment:focus-visible { outline:2px solid var(--ud-focus); outline-offset:2px; }
+        .composer-choice .segment:disabled { opacity:.6; cursor:wait; }
         .composer-view .composer-error { min-height:0; margin:8px 0 0; font-size:11px; }
         .composer-view .composer-error:empty { display:none; }
         .composer-view>.composer-actions { position:static; flex:none; bottom:auto; grid-template-columns:1fr 1.2fr; gap:8px; margin:0; padding:10px 14px; border-top:1px solid var(--ud-border); background:var(--ud-surface); }
         .composer-view>.composer-actions button { min-height:32px; padding:0 8px; border-radius:7px; font-size:12px; }
+        .inbox-view.active { display:flex; flex-direction:column; height:100%; min-height:0; padding:0; }
+        .inbox-head { flex:none; padding:12px 14px 0; }
+        .inbox-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:0 14px; scrollbar-width:thin; }
+        .inbox-view .inbox-toolbar { padding-bottom:8px; border:0; }
+        .inbox-view .inbox-title { font-size:13px; }
+        .inbox-view .inbox-meta { font-size:11px; margin-top:3px; }
+        .inbox-view .filter-row { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:3px; margin-top:8px; padding:0; overflow:visible; }
+        .inbox-view .filter { min-width:0; min-height:28px; height:28px; padding:0 3px; font-size:11px; white-space:nowrap; }
+        .inbox-view>.inbox-actions { position:static; flex:none; bottom:auto; margin:0; padding:10px 14px; border-top:1px solid var(--ud-border); background:var(--ud-surface); }
+        .inbox-view>.inbox-actions button { min-height:30px; font-size:11px; border-radius:6px; }
         .record-flight { position:fixed; z-index:18; display:flex; align-items:center; justify-content:center; overflow:hidden; pointer-events:none; transform-origin:0 0; border:1px solid #a5b1ff; border-radius:6px; background:rgba(45,55,96,.9); box-shadow:0 6px 22px rgba(0,0,0,.18); color:#f4f6ff; font:600 12px/1.3 var(--ud-font); }
         .record-flight span { display:block; padding:8px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         :host([data-uidelta-capturing]) * { pointer-events:none!important; }
@@ -613,18 +757,62 @@
         ["severity", "影响程度", Object.fromEntries(Object.entries(SEVERITIES).filter(([key]) => !["minor", "major"].includes(key))) ]
       ];
       return "<div class='composer-choices'>" + rows.map(([key, label, options]) =>
-        `<label class='composer-choice'><span>${label}</span><select data-composer-choice='${key}' aria-label='${label}'>` +
-        Object.entries(options).map(([value, text]) => `<option value='${value}'>${text}</option>`).join("") +
-        "</select></label>"
+        `<div class='composer-choice'><div class='composer-choice-label' id='composer-${key}-label'>${label}</div><div class='segments' data-segments='${key}' role='radiogroup' aria-labelledby='composer-${key}-label'>` +
+        Object.entries(options).map(([value, text], index) => `<button type='button' class='segment' data-${key}='${value}' role='radio' aria-checked='false' tabindex='${index === 0 ? 0 : -1}'>${text}</button>`).join("") +
+        "</div></div>"
       ).join("") + "</div>";
     }
 
     setComposerChoice(key, value) {
       const options = { type: ISSUE_TYPES, priority: PRIORITIES, severity: SEVERITIES };
-      if (!this.composer || !Object.hasOwn(options, key) || !Object.hasOwn(options[key], value)) return false;
+      if (!this.composer || this.composer.controlsLocked || !Object.hasOwn(options, key) || !Object.hasOwn(options[key], value)) return false;
       this.composer[key] = key === "severity" ? this.normalizeSeverity(value) : value;
       this.updateComposerControls();
+      this.persistTabContext();
       return true;
+    }
+
+    deliveryCardsMarkup() {
+      const icon = (paths) => `<span class='delivery-card-icon' aria-hidden='true'><svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' focusable='false'>${paths}</svg></span>`;
+      return "<div class='delivery-card-grid'>"
+        + "<article class='delivery-card'>" + icon("<rect x='4' y='3' width='16' height='18' rx='2'/><path d='M8 7h8M8 11h8M8 15h5'/>")
+        + "<div class='delivery-card-copy'><strong>协作问题单</strong><span>查看与跟进</span></div><div class='delivery-card-actions'><button class='ghost-button delivery-example' data-action='preview-delivery' data-format='html' aria-label='查看 HTML 问题单示例'>示例</button><button class='secondary-button' data-action='deliver-html'>导出 HTML</button></div></article>"
+        + "<article class='delivery-card'>" + icon("<rect x='3' y='3' width='18' height='18' rx='2'/><path d='M3 9h18M3 15h18M9 9v12'/>")
+        + "<div class='delivery-card-copy'><strong>排期问题表</strong><span>表格与预览</span></div><div class='delivery-card-actions'><button class='ghost-button delivery-example' data-action='preview-delivery' data-format='xlsx' aria-label='查看 XLSX 问题表示例'>示例</button><button class='secondary-button' data-action='deliver-xlsx'>导出 XLSX</button></div></article>"
+        + "<article class='delivery-card'>" + icon("<path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z'/><path d='M14 2v6h6M9 12l-3 3 3 3M15 12l3 3-3 3'/>")
+        + "<div class='delivery-card-copy'><strong>给 Agent / 前端</strong><span>截图与开发信息</span></div><button class='ghost-button delivery-example' data-action='preview-delivery' data-format='zip' aria-label='查看 ZIP 开发交付包示例'>示例</button><div class='delivery-agent-actions'><button class='ghost-button' data-action='copy-agent'>复制给 Codex</button><button class='primary-button' data-action='deliver-zip'>导出 ZIP</button></div></article></div>";
+    }
+
+    cancelToolbarTransition() {
+      this.cancelCaptureSurfaceTransition();
+      this.hideDeliveryExampleHover();
+      this.cancelIssueCountTransition();
+      const animations = this.toolbarAnimations || [];
+      this.toolbarAnimations = [];
+      for (const animation of animations) animation.cancel();
+    }
+
+    animateToolbarAction(button, event) {
+      this.cancelToolbarTransition();
+      // Keep keyboard switching immediate. Never move focused fields or wait
+      // for motion before accepting input; reduced-motion users get no travel.
+      if (!button || button.disabled || !event?.detail || !this.enabled
+        || this.captureOverlayStyles || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+      const animations = [];
+      this.toolbarAnimations = animations;
+      const play = (node, frames, duration) => {
+        if (node?.animate) animations.push(node.animate(frames, { duration, easing:"cubic-bezier(0.23, 1, 0.32, 1)" }));
+      };
+      play(button.querySelector(".mode-icon") || button,
+        [{ transform:"scale(.84)" }, { transform:"scale(1)" }], 150);
+      const surface = this.uiEditor?.classList.contains("visible") ? this.uiEditor
+        : this.panel?.style.display !== "none" ? this.panel : null;
+      if (!this.browseMode && !this.panelDrag && !this.uiEditorDrag) {
+        play(surface, [{ opacity:.5, transform:"translateY(6px) scale(.985)" }, { opacity:1, transform:"none" }], 200);
+      }
+      Promise.all(animations.map((animation) => animation.finished.catch(() => {}))).then(() => {
+        if (this.toolbarAnimations === animations) this.toolbarAnimations = [];
+      });
     }
 
     modeToolbarMarkup() {
@@ -636,7 +824,7 @@
         icon("<path d='M12 2H8.5a3.5 3.5 0 0 0 0 7H12V2Zm0 0h3.5a3.5 3.5 0 0 1 0 7H12M12 9H8.5a3.5 3.5 0 0 0 0 7H12V9Zm0 7H8.5a3.5 3.5 0 1 0 3.5 3.5V16Z'/><circle cx='15.5' cy='12.5' r='3.5'/>"),
         "</button><button data-mode='annotation' data-tooltip='标注模式' aria-label='标注模式' aria-pressed='false'>",
         icon("<path d='M13 7 8.7 2.7a2.41 2.41 0 0 0-3.4 0L2.7 5.3a2.41 2.41 0 0 0 0 3.4L7 13M8 6l2-2M18 16l2-2M17 11l4.3 4.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L11 17'/><path d='M21.17 6.81a2.82 2.82 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83L2.02 21.35a.5.5 0 0 0 .63.63L7 20.66a2 2 0 0 0 .83-.5ZM15 5l4 4'/>"),
-        "</button><button class='mode-issue-count' data-action='open-inbox' data-tooltip='问题列表' aria-label='打开问题列表，已记录 0 个问题'>0</button>",
+        "</button><button class='mode-issue-count' data-action='open-inbox' data-tooltip='问题列表' aria-label='打开问题列表，已记录 0 个问题'><span class='mode-count-value' aria-hidden='true'>0</span></button><span class='mode-save-status' role='status' aria-live='polite' aria-atomic='true'></span>",
         "<button data-mode='region' data-tooltip='框选模式' aria-label='框选模式' aria-pressed='false'>",
         icon("<path d='M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3'/><rect x='7' y='7' width='7' height='7' rx='1'/><rect x='11' y='11' width='7' height='7' rx='1'/>"),
         "</button><button class='mode-browse' data-action='browse' data-tooltip='浏览页面' aria-label='收起面板，浏览页面' aria-pressed='false'>",
@@ -646,6 +834,14 @@
     }
 
     localizeOverlay(shadow) {
+      // Browsers and translation extensions can cross the shadow boundary.
+      // Protect the tool's labels/shortcuts, never change the inspected page.
+      for (const node of Array.from(shadow.children || [])) {
+        if (node.tagName === "STYLE") continue;
+        node.setAttribute("translate", "no");
+        node.setAttribute("lang", "zh-CN");
+        node.classList.add("notranslate");
+      }
       const setText = (selector, value) => {
         const node = shadow.querySelector(selector);
         if (node) node.textContent = value;
@@ -680,9 +876,10 @@
       setText(".ui-editor-layout-section .ui-editor-group-label", "尺寸");
       setText(".ui-editor-layout-section .ui-editor-group-label.after-fields", "对齐与间距");
       shadow.querySelectorAll(".ui-editor-layout-section .ui-editor-group-label").forEach((node) => node.remove());
-      setText(".ui-editor-section:not(.ui-editor-layout-section):not(.ui-editor-text-section):not(.ui-editor-advanced-section):nth-of-type(2) .ui-editor-section-title", "外观");
-      setText(".ui-editor-section:not(.ui-editor-layout-section):not(.ui-editor-text-section):not(.ui-editor-advanced-section):nth-of-type(3) .ui-editor-section-title", "文字");
-      setText(".ui-editor-section:not(.ui-editor-layout-section):not(.ui-editor-text-section):not(.ui-editor-advanced-section):nth-of-type(4) .ui-editor-section-title", "填充");
+      for (const [section, title] of [["spacing", "间距与内边距"], ["appearance", "外观"], ["typography", "文字"], ["fill", "填充"]]) {
+        const heading = shadow.querySelector(`[data-ui-section='${section}']`)?.closest(".ui-editor-section")?.querySelector(".ui-editor-section-title");
+        if (heading) heading.textContent = title;
+      }
       setText(".ui-editor-text-section .ui-editor-section-title", "文本内容");
       setText(".ui-editor-advanced-section .ui-editor-section-title", "高级属性");
       setText(".ui-editor-advanced-action", "高级属性");
@@ -770,11 +967,14 @@
 
     async setEnabled(enabled, context = {}) {
       const toggleEpoch = ++this.toggleEpoch;
+      this.tabConfigured = true;
       this.enabled = Boolean(enabled);
       this.host.style.display = this.enabled ? "block" : "none";
       this.syncCursorState();
 
       if (!this.enabled) {
+        this.cancelPendingIssueDeletions();
+        this.cancelToolbarTransition();
         this.cancelRecordTransition?.();
         this.setCaptureOverlayVisible?.(true);
         this.persistTabContext();
@@ -811,8 +1011,9 @@
     composerTabSnapshot() {
       const composer = this.composer;
       if (!composer?.issue) return null;
+      if (composer.formReady) composer.issue.description = this.descriptionInput?.value ?? composer.issue.description ?? "";
       return {
-        issue: { ...structuredClone(composer.issue), description: this.descriptionInput?.value ?? composer.issue.description ?? "" },
+        issue: structuredClone(composer.issue),
         mode: composer.mode, returnView: composer.returnView,
         type: composer.type, severity: composer.severity, priority: composer.priority,
         originalAttachments: { ...(composer.originalAttachments || {}) },
@@ -823,6 +1024,7 @@
     persistTabContext() {
       // Draft text belongs to this tab, including edits to an accepted issue.
       // It is not committed to the issue database until the user saves it.
+      if (!this.tabConfigured) return Promise.resolve({ ok: true });
       return this.sendMessage({
         type: "SYNC_TAB_STATE", enabled: this.enabled, browseMode: this.browseMode,
         inspectMode: this.inspectMode, view: this.currentView, composerDraft: this.composerTabSnapshot()
@@ -853,6 +1055,8 @@
       if (!this.enabled) return;
       this.browseMode = Boolean(active);
       if (this.browseMode) {
+        this.cancelPendingIssueDeletions();
+        this.cancelToolbarTransition();
         this.cancelRecordTransition?.();
         this.modifierDown = false;
         this.pierceDown = false;
@@ -903,10 +1107,12 @@
     }
 
     showView(name) {
+      if (name !== "inbox") this.cancelPendingIssueDeletions();
+      this.cancelToolbarTransition();
       if (name !== "composer") this.cancelRecordTransition?.();
       this.currentView = name;
       const isInspectView = name === "inspect" && !this.browseMode;
-      const preserveComposerMeasurement = name === "composer" && !this.browseMode && Boolean(this.composer?.issue?.measurement);
+      const preserveComposerMeasurement = name === "composer" && !this.browseMode && Boolean(this.composer);
       this.pinsLayer.style.display = isInspectView ? "" : "none";
       this.recordPrompt?.classList.remove("visible");
       if (!isInspectView) this.regionBox.style.display = "none";
@@ -918,7 +1124,7 @@
           this.measurements.replaceChildren();
           this.currentMeasurement = null;
         } else {
-          this.renderMeasurementSnapshot(this.composer.issue.measurement);
+          this.renderComposerOverlay();
         }
       }
       const paused = this.session?.status === "paused";
@@ -1102,6 +1308,7 @@
     }
 
     onPointerMove(event) {
+      if (this.browseMode) return;
       if (this.regionEdit) {
         this.updateRegionEdit(event.clientX, event.clientY);
         return;
@@ -1163,6 +1370,7 @@
     }
 
     onDocumentPointerDown(event) {
+      if (this.browseMode) return;
       if (!this.enabled || !this.isSessionActive() || this.interactionDown || event.button !== 0 || this.isUiEvent(event)) return;
       if (this.currentView !== "inspect") return;
       if (this.inspectMode === "region") {
@@ -1179,6 +1387,7 @@
     }
 
     onDocumentClick(event) {
+      if (this.browseMode) return;
       if (!this.enabled || !this.isSessionActive() || this.interactionDown || event.button !== 0 || this.isUiEvent(event)) return;
       if (this.currentView !== "inspect" || this.inspectMode === "region") return;
       // Prevent links, buttons and other host controls from receiving the click
@@ -1204,6 +1413,7 @@
     }
 
     onDocumentPointerUp(event) {
+      if (this.browseMode) return;
       if (this.regionEdit && event.button === 0) {
         this.endRegionEdit();
         return;
@@ -1219,21 +1429,20 @@
     }
 
     onKeyDown(event) {
-      if (!this.enabled) return;
+      if (!this.enabled || this.browseMode || event.isComposing || event.keyCode === 229) return;
+      if (event.key === "Escape" && (this.deliveryHoverState || this.deliveryHoverOpenTimer)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.hideDeliveryExampleHover();
+        return;
+      }
       const typing = this.isTypingTarget(event);
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopImmediatePropagation();
         if (this.preview && !this.preview.hidden) {
           this.closeImagePreview();
-        } else if (this.currentView === "composer") {
-          if (this.composer && this.composer.saving) this.showToast("正在保存问题，请稍候");
-          else this.cancelComposer();
-        } else if (this.currentView === "inbox") {
-          this.showView(this.session?.status === "paused" ? "paused" : "inspect");
-        } else {
-          this.setEnabled(false);
-        }
+        } else this.minimizePanel();
         return;
       }
       if (this.isSessionActive() && (event.altKey || event.key === "Alt")) this.setModifier(false);
@@ -1254,6 +1463,9 @@
       const canRecordFromCurrentState = this.isCanvasInteractionView() || dockOpen;
       const isRecordShortcut = event.code === "KeyR"
         && !event.ctrlKey
+        && !event.metaKey
+        && !event.altKey
+        && !event.shiftKey
         && !event.repeat
         && !event.isComposing
         && !typing
@@ -1287,6 +1499,7 @@
     }
 
     onKeyUp(event) {
+      if (this.browseMode) return;
       if (this.enabled && this.interactionDown && event.code === "Space") {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -1303,7 +1516,7 @@
       if (typing) return;
       if (event.altKey || event.metaKey || event.ctrlKey) return;
       if (this.currentView === "composer") {
-        if (this.composer?.issue?.measurement) this.renderMeasurementSnapshot(this.composer.issue.measurement);
+        this.renderComposerOverlay();
         return;
       }
       if (this.isCanvasInteractionView() && this.selected) {
@@ -1313,12 +1526,13 @@
     }
 
     onWindowBlur() {
-      if (!this.enabled) return;
+      this.hideDeliveryExampleHover();
+      if (!this.enabled || this.browseMode) return;
       if (this.interactionDown) this.setInteractionMode(false);
       if (this.modifierDown) this.setModifier(false);
       if (this.pierceDown) this.setPierce(false);
       if (this.currentView === "composer") {
-        if (this.composer?.issue?.measurement) this.renderMeasurementSnapshot(this.composer.issue.measurement);
+        this.renderComposerOverlay();
         return;
       }
       if (this.isCanvasInteractionView() && this.selected) {
@@ -1330,9 +1544,10 @@
     }
 
     onLayoutChange() {
+      this.hideDeliveryExampleHover();
       if (!this.enabled) return;
-      if (this.currentView === "composer" && this.composer?.issue?.measurement) {
-        this.renderMeasurementSnapshot(this.composer.issue.measurement);
+      if (this.currentView === "composer") {
+        this.renderComposerOverlay();
       } else if (this.isCanvasInteractionView() && !this.interactionDown) {
         if (this.selected && !this.selected.isConnected) {
           this.selected = null;
@@ -1384,7 +1599,7 @@
     }
 
     syncCursorState() {
-      const inspecting = this.enabled && this.session?.status !== "paused" && this.currentView === "inspect" && !this.interactionDown;
+      const inspecting = this.enabled && !this.browseMode && this.session?.status !== "paused" && this.currentView === "inspect" && !this.interactionDown;
       document.documentElement.classList.toggle(ACTIVE_CLASS, inspecting);
       document.documentElement.classList.toggle(MEASURE_CLASS, inspecting && this.modifierDown);
       document.documentElement.classList.toggle(PIERCE_CLASS, inspecting && this.pierceDown);
@@ -1400,7 +1615,9 @@
     }
 
     isCanvasInteractionView() {
-      return this.currentView === "inspect" || this.currentView === "composer";
+      // The composer owns a frozen target, not whichever element is under
+      // the pointer after scrolling. Resume hover inspection on return only.
+      return !this.browseMode && this.currentView === "inspect";
     }
 
     getTarget(event, pierce) {
@@ -1437,6 +1654,7 @@
     }
 
     renderHover(element, keepSelection = false, issue = null) {
+      if (this.browseMode) return;
       this.currentMeasurement = null;
       this.measurementTarget = null;
       this.lastMeasurement = null;
@@ -1462,6 +1680,7 @@
     }
 
     renderSelected(element, pointer = {}) {
+      if (this.browseMode) return;
       this.currentMeasurement = null;
       this.selectedBox.classList.toggle("ui-selected", this.inspectMode === "ui");
       this.showBox(this.selectedBox, element);
@@ -1479,6 +1698,7 @@
     }
 
     renderComparison(from, to) {
+      if (this.browseMode) return;
       this.showBox(this.selectedBox, from);
       this.showBox(this.hoverBox, to);
       this.showTooltip(to, this.pierceDown ? "穿透测距" : "悬停测距");
@@ -1499,11 +1719,11 @@
     updateModeControls() {
       const labels = {
         ui: "UI 模式：点击元素后试改。",
-        annotation: "标注模式：点击元素后固定，按 R 记录。",
+        annotation: "点击固定 · 悬停测距 · R 记录",
         region: "框选模式：拖拽区域后记录。"
       };
       for (const button of this.shadow.querySelectorAll("[data-mode]")) {
-        const active = button.dataset.mode === this.inspectMode;
+        const active = !this.browseMode && button.dataset.mode === this.inspectMode;
         button.classList.toggle("active", active);
         button.setAttribute("aria-selected", String(active));
         if (button.closest(".mode-toolbar")) {
@@ -1518,6 +1738,7 @@
 
     setInspectMode(mode) {
       if (!['ui', 'annotation', 'region'].includes(mode)) return;
+      this.cancelToolbarTransition();
       this.inspectMode = mode;
       this.lastHoverTarget = null;
       this.regionSelection = null;
@@ -1782,6 +2003,102 @@
         return snapshot;
       }
       return this.buildParentMeasurementSnapshot(element);
+    }
+
+    createRegionTracker(rect) {
+      const element = this.deepElementsFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+        .find((node) => node !== document.body && node !== document.documentElement && !node.closest("[" + ROOT_ATTRIBUTE + "]"));
+      return { rect:{ ...rect }, element, elementRect:element ? this.rectSnapshot(element.getBoundingClientRect()) : null,
+        scroll:{ x:window.scrollX, y:window.scrollY } };
+    }
+
+    lockComposerOverlay(composer = this.composer) {
+      if (!composer || composer.overlayAnchor) return composer?.overlayAnchor || null;
+      const issue = composer.issue;
+      // Keep DOM references on the in-memory composer, never in its saved
+      // issue. Resolve once: a recycled table row must not become a new target.
+      const samePage = !issue.pageSnapshot?.url || issue.pageSnapshot.url === location.href;
+      const measurement = issue.measurement;
+      composer.overlayAnchor = {
+        pageUrl:issue.pageSnapshot?.url || location.href,
+        target:samePage ? composer.targetElement : null,
+        from:samePage && measurement ? this.resolveAnchor(measurement.from) : null,
+        to:samePage && measurement ? this.resolveAnchor(measurement.to) : null,
+        region:issue.region ? composer.regionTracker || { rect:{ ...issue.region }, scroll:issue.pageSnapshot?.scroll || { x:0, y:0 } } : null
+      };
+      return composer.overlayAnchor;
+    }
+
+    isComposerElementCurrent(element, anchor) {
+      if (!element?.isConnected) return false;
+      // Virtualized tables can reuse a connected node for a different record.
+      return !anchor?.text || this.textContent(element).slice(0, 160) === anchor.text;
+    }
+
+    visibleComposerRect(element, rect) {
+      let left = Math.max(0, rect.left), top = Math.max(0, rect.top);
+      let right = Math.min(window.innerWidth, rect.right), bottom = Math.min(window.innerHeight, rect.bottom);
+      for (let parent = element?.parentElement || element?.getRootNode?.().host; parent; parent = parent.parentElement || parent.getRootNode?.().host) {
+        const style = window.getComputedStyle?.(parent);
+        if (!style) continue;
+        const bounds = parent.getBoundingClientRect();
+        if (/auto|scroll|hidden|clip/.test(style.overflowX)) { left = Math.max(left, bounds.left); right = Math.min(right, bounds.right); }
+        if (/auto|scroll|hidden|clip/.test(style.overflowY)) { top = Math.max(top, bounds.top); bottom = Math.min(bottom, bounds.bottom); }
+      }
+      return right > left && bottom > top ? { left, top, right, bottom, width:right - left, height:bottom - top } : null;
+    }
+
+    composerGeometry(composer = this.composer) {
+      const locked = this.lockComposerOverlay(composer);
+      if (!locked || locked.pageUrl !== location.href) return null;
+      if (locked.region) {
+        const { rect, element, elementRect, scroll } = locked.region;
+        if (element && !element.isConnected) return null;
+        const current = element?.getBoundingClientRect();
+        const dx = current ? current.left - elementRect.left : (scroll.x || 0) - window.scrollX;
+        const dy = current ? current.top - elementRect.top : (scroll.y || 0) - window.scrollY;
+        const region = { ...rect, left:rect.left + dx, right:rect.right + dx, top:rect.top + dy, bottom:rect.bottom + dy };
+        const visible = this.visibleComposerRect(element, region);
+        return visible ? { rect:region, visible, region:true } : null;
+      }
+      if (!this.isComposerElementCurrent(locked.target, composer.issue.elementAnchor)) return null;
+      const rect = this.rectSnapshot(locked.target.getBoundingClientRect());
+      const visible = this.visibleComposerRect(locked.target, rect);
+      if (!visible) return null;
+      const original = composer.issue.measurement;
+      let measurement = null;
+      if (original && this.isComposerElementCurrent(locked.from, original.from) && this.isComposerElementCurrent(locked.to, original.to)) {
+        const fromRect = locked.from.getBoundingClientRect(), toRect = locked.to.getBoundingClientRect();
+        if (this.visibleComposerRect(locked.from, fromRect) && this.visibleComposerRect(locked.to, toRect)) {
+          measurement = this.buildMeasurementSnapshot(locked.from, locked.to, fromRect, toRect);
+          measurement.kind = original.kind;
+          if (original.kind === "parent") { measurement.flush = !measurement.segments.length; measurement.overlap = false; }
+        }
+      }
+      return { rect, visible, target:locked.target, from:locked.from, to:locked.to, measurement };
+    }
+
+    renderComposerOverlay() {
+      this.recordPrompt?.classList.remove("visible");
+      this.tooltip.style.display = "none";
+      this.selectedBox.style.display = "none";
+      this.hoverBox.style.display = "none";
+      this.regionBox.style.display = "none";
+      this.measurements.replaceChildren();
+      if (this.currentView !== "composer" || this.browseMode) return;
+      const geometry = this.composerGeometry();
+      if (!geometry) return;
+      const paint = (box, rect) => Object.assign(box.style, { display:"block", left:rect.left + "px", top:rect.top + "px", width:rect.width + "px", height:rect.height + "px" });
+      if (geometry.region) {
+        this.regionBox.classList.remove("editable");
+        paint(this.regionBox, geometry.visible);
+      } else if (geometry.measurement) {
+        paint(this.selectedBox, this.visibleComposerRect(geometry.from, geometry.measurement.fromRect));
+        paint(this.hoverBox, this.visibleComposerRect(geometry.to, geometry.measurement.toRect));
+        this.renderMeasurementSnapshot(geometry.measurement);
+      } else paint(this.selectedBox, geometry.visible);
+      // Do not change issue.measurement, currentMeasurement, the form tree,
+      // or input focus: only the viewport projection follows the page.
     }
 
     resolveIssueMeasurement(issue, fallbackElement) {
@@ -2210,18 +2527,7 @@
         `<span class="layer-box-side ${side}" data-layer-box="${kind}-${side}"></span>`
       ).join("");
       const row = (key, label, className = "") => `<div class="layer-property-row ${className}" data-layer-row="${key}" hidden><dt>${label}</dt><dd data-layer-value="${key}"></dd></div>`;
-      return `<section class="layer-properties" aria-labelledby="uidelta-layer-properties-title" hidden>
-        <h2 id="uidelta-layer-properties-title" class="layer-properties-title">Layer properties</h2>
-        <div class="layer-box-model" aria-label="盒模型：边框、内边距与内容尺寸，单位为 CSS 像素">
-          <div class="layer-box-band layer-box-border">
-            <span class="layer-box-caption">边框</span>${sides("border")}
-            <div class="layer-box-band layer-box-padding">
-              <span class="layer-box-caption">内边距</span>${sides("padding")}
-              <div class="layer-box-content"><span>内容</span><strong data-layer-box="content-size"></strong></div>
-            </div>
-          </div>
-          <p class="layer-box-note" data-layer-box="note" hidden></p>
-        </div>
+      return `<section class="layer-properties" aria-label="元素属性" hidden>
         <dl class="layer-size-grid">${row("width", "宽 W")}${row("height", "高 H")}</dl>
         <dl class="layer-property-list">
           ${row("layout", "布局")}${row("direction", "方向")}${row("alignment", "对齐")}${row("gap", "间距")}
@@ -2229,6 +2535,20 @@
           ${row("text-color", "文字色")}${row("background", "背景")}${row("background-image", "背景图")}
           ${row("opacity", "透明度")}${row("radius", "圆角")}${row("border", "边框")}${row("shadow", "阴影")}
         </dl>
+        <div class="layer-box-model" role="group" aria-labelledby="uidelta-layer-properties-title" aria-label="盒模型：外边距、边框、内边距与内容尺寸，单位为 CSS 像素">
+          <h2 id="uidelta-layer-properties-title" class="layer-properties-title">Layer properties</h2>
+          <div class="layer-box-band layer-box-margin">
+            <span class="layer-box-caption">外边距</span>${sides("margin")}
+            <div class="layer-box-band layer-box-border">
+              <span class="layer-box-caption">边框</span>${sides("border")}
+              <div class="layer-box-band layer-box-padding">
+                <span class="layer-box-caption">内边距</span>${sides("padding")}
+                <div class="layer-box-content"><strong data-layer-box="content-size" aria-label="内容尺寸"></strong></div>
+              </div>
+            </div>
+          </div>
+          <p class="layer-box-note" data-layer-box="note" hidden></p>
+        </div>
       </section>`;
     }
 
@@ -2237,16 +2557,16 @@
         .layer-properties { min-width:0; padding:12px 0; }
         .layer-properties [hidden],.layer-properties[hidden] { display:none!important; }
         .layer-properties-title { margin:0 0 12px; color:var(--ud-text); font-size:13px; font-weight:600; line-height:1.4; }
-        .layer-box-model { min-width:0; margin-bottom:12px; }
-        .layer-box-band { position:relative; display:grid; grid-template-columns:minmax(24px,.28fr) minmax(0,1fr) minmax(24px,.28fr); grid-template-rows:minmax(24px,auto) auto minmax(24px,auto); align-items:center; min-width:0; border:1px solid var(--ud-border); border-radius:6px; }
-        .layer-box-border { background:var(--ud-elevated); }
-        .layer-box-padding { grid-area:2/2; background:var(--ud-inset); }
-        .layer-box-caption { position:absolute; top:5px; left:5px; color:var(--ud-text-muted); font-size:10px; line-height:1.4; pointer-events:none; }
-        .layer-box-side { display:block; min-width:0; padding:3px 2px; color:var(--ud-text-secondary); font-size:11px; line-height:1.4; text-align:center; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
-        .layer-box-side.top { grid-area:1/2; }.layer-box-side.right { grid-area:2/3; }.layer-box-side.bottom { grid-area:3/2; }.layer-box-side.left { grid-area:2/1; }
-        .layer-box-content { grid-area:2/2; display:grid; gap:2px; min-width:0; min-height:42px; padding:5px 2px; border:1px solid var(--ud-border); border-radius:4px; text-align:center; }
-        .layer-box-content>span { color:var(--ud-text-muted); font-size:10px; line-height:1.4; }
-        .layer-box-content strong { min-width:0; color:var(--ud-text); font-size:11px; font-weight:500; line-height:1.45; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+        .layer-box-model { min-width:0; margin-top:14px; padding-top:12px; border-top:1px solid var(--ud-border); }
+        .layer-box-band { position:relative; display:grid; grid-template-columns:19px minmax(0,1fr) 19px; grid-template-rows:minmax(26px,auto) auto minmax(24px,auto); align-items:center; min-width:0; border:1px solid #414637; border-radius:0; }
+        .layer-box-margin { background:#f7cca5; border-style:dashed; }
+        .layer-box-border { grid-area:2/2; background:#f9dfa1; }
+        .layer-box-padding { grid-area:2/2; background:#c6d292; border-style:dashed; }
+        .layer-box-caption { position:absolute; top:4px; left:4px; color:#283026; font-size:10px; line-height:1.4; pointer-events:none; }
+        .layer-box-side { display:block; min-width:0; padding:3px 1px; color:#283026; font-size:10px; line-height:1.4; text-align:center; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+        .layer-box-side.top { grid-area:1/2; padding-left:24px; }.layer-box-side.right { grid-area:2/3; }.layer-box-side.bottom { grid-area:3/2; }.layer-box-side.left { grid-area:2/1; }
+        .layer-box-content { grid-area:2/2; display:grid; place-items:center; min-width:0; min-height:30px; padding:4px 2px; border:1px solid #414637; border-radius:0; background:#90b6c1; text-align:center; }
+        .layer-box-content strong { min-width:0; color:#283026; font-size:10px; font-weight:500; line-height:1.45; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
         .layer-box-note { margin:5px 0 0; color:var(--ud-text-muted); font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
         .layer-size-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:0 0 10px; }
         .layer-property-list { display:grid; gap:5px; margin:0; }
@@ -2254,6 +2574,10 @@
         .layer-property-row dt { margin:0; color:var(--ud-text-muted); font-size:11px; font-weight:400; line-height:1.55; }
         .layer-property-row dd { display:flex; align-items:flex-start; gap:6px; min-width:0; max-width:100%; margin:0; color:var(--ud-text); font-size:12px; font-weight:400; line-height:1.5; white-space:normal; overflow-wrap:anywhere; }
         .layer-value-text { min-width:0; max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+        .layer-font-stack { min-width:0; width:100%; }
+        .layer-font-stack summary { cursor:pointer; overflow-wrap:anywhere; }
+        .layer-font-stack summary:focus-visible { outline:2px solid var(--ud-focus); outline-offset:2px; border-radius:2px; }
+        .layer-font-options { display:block; margin-top:4px; padding:6px; background:var(--ud-inset); color:var(--ud-text-secondary); font-size:11px; white-space:pre-line; overflow-wrap:anywhere; }
         .layer-size-grid .layer-property-row { grid-template-columns:1fr; gap:2px; }
         .layer-size-grid dd { font-size:13px; font-weight:500; font-variant-numeric:tabular-nums; }
         .layer-color-swatch { display:block; width:12px; height:12px; flex:0 0 12px; margin-top:3px; border:1px solid var(--ud-border-strong); border-radius:3px; background:var(--layer-swatch); }
@@ -2261,11 +2585,14 @@
     }
 
     layerBoxMetrics(element, style) {
-      const pixels = (value) => {
+      const pixels = (value, signed = false) => {
         const match = String(value ?? "").trim().match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+))(?:px)?$/i);
-        return match && Number.isFinite(Number(match[1])) ? Math.max(0, Number(match[1])) : null;
+        return match && Number.isFinite(Number(match[1])) ? (signed ? Number(match[1]) : Math.max(0, Number(match[1]))) : null;
       };
       const sides = ["Top", "Right", "Bottom", "Left"];
+      // Negative margins are valid. Keep unresolved auto/non-pixel values
+      // instead of misreporting them as zero or deducting them from content.
+      const margin = sides.map((side) => pixels(style["margin" + side], true) ?? (String(style["margin" + side] || "0").trim()));
       const padding = sides.map((side) => pixels(style["padding" + side]) ?? 0);
       const border = sides.map((side) => ["none", "hidden"].includes(style["border" + side + "Style"]) ? 0 : pixels(style["border" + side + "Width"]) ?? 0);
       const hasBox = !["none", "contents"].includes(style.display);
@@ -2290,12 +2617,18 @@
         return Math.max(0, client - paddingTotal);
       };
       return {
-        padding, border,
+        margin, padding, border,
         width: dimension("width", 3, 1, "offsetWidth", "clientWidth"),
         height: dimension("height", 0, 2, "offsetHeight", "clientHeight"),
         boxSizing: style.boxSizing,
         hasBox
       };
+    }
+
+    fontFamilyNames(value) {
+      // A quoted family can contain commas: do not split it into fake fonts.
+      return (String(value || "").match(/(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^,"'])+/g) || [])
+        .map((name) => name.trim().replace(/^(["'])(.*)\1$/, "$2")).filter(Boolean);
     }
 
     renderLayerProperties(element, style, rect) {
@@ -2327,12 +2660,15 @@
       const box = this.layerBoxMetrics(element, style);
       const sideLabels = ["上", "右", "下", "左"];
       const sides = ["top", "right", "bottom", "left"];
-      for (const kind of ["border", "padding"]) {
+      for (const kind of ["margin", "border", "padding"]) {
         sides.forEach((side, index) => {
           const output = root.querySelector(`[data-layer-box='${kind}-${side}']`);
-          output.textContent = box.hasBox ? format(box[kind][index]) : "";
-          output.title = `${kind}-${side}${kind === "border" ? "-width" : ""}: ${format(box[kind][index])}px`;
-          output.setAttribute("aria-label", `${kind === "border" ? "边框" : "内边距"}${sideLabels[index]} ${format(box[kind][index])} 像素`);
+          const value = box[kind][index];
+          const numeric = typeof value === "number";
+          const text = numeric ? format(value) : value;
+          output.textContent = box.hasBox ? text : "";
+          output.title = box.hasBox ? `${kind}-${side}${kind === "border" ? "-width" : ""}: ${text}${numeric ? "px" : ""}` : "";
+          output.setAttribute("aria-label", box.hasBox ? `${{ margin:"外边距", border:"边框", padding:"内边距" }[kind]}${sideLabels[index]} ${text}${numeric ? " 像素" : ""}` : "无布局盒");
         });
       }
       const content = root.querySelector("[data-layer-box='content-size']");
@@ -2353,6 +2689,21 @@
       row("gap", layout && style.gap && style.gap !== "normal" ? style.gap : "", style.gap);
       const hasText = Boolean(this.textContent(element));
       row("font", hasText ? style.fontFamily : "");
+      const fonts = hasText ? this.fontFamilyNames(style.fontFamily) : [];
+      if (fonts.length > 1) {
+        const output = root.querySelector("[data-layer-value='font']");
+        const details = document.createElement("details");
+        details.className = "layer-font-stack";
+        const summary = document.createElement("summary");
+        summary.textContent = fonts[0] + " · +" + (fonts.length - 1);
+        summary.setAttribute("aria-label", "CSS 字体列表，展开查看全部 " + fonts.length + " 项");
+        const options = document.createElement("span");
+        options.className = "layer-font-options";
+        options.textContent = fonts.join("\n");
+        details.appendChild(summary);
+        details.appendChild(options);
+        output.replaceChildren(details);
+      }
       row("font-size", hasText ? style.fontSize : "");
       row("line-height", hasText ? style.lineHeight : "");
       row("font-weight", hasText ? style.fontWeight : "");
@@ -2523,7 +2874,7 @@
 
     renderUiEditor(element, preserve = false) {
       if (!this.uiEditor) return;
-      const visible = this.inspectMode === "ui" && this.currentView === "inspect" && this.isSessionActive();
+      const visible = !this.browseMode && this.inspectMode === "ui" && this.currentView === "inspect" && this.isSessionActive();
       this.uiEditor.classList.toggle("visible", visible);
       if (!visible) return;
       // A connected target is sufficient. The previous strict identity check
@@ -2552,7 +2903,8 @@
         : [];
       const sections = {
         dimensions: [["width", "W", "numeric-width"], ["height", "H", "numeric-height"], ...positionFields],
-        layout: [["display", "布局", "select"], ["flexDirection", "方向", "select"], ["justifyContent", "主轴", "select"], ["alignItems", "交叉轴", "select"], ["gap", "间距"], ["paddingTop", "上内边距"], ["paddingRight", "右内边距"], ["paddingBottom", "下内边距"], ["paddingLeft", "左内边距"]],
+        layout: [["display", "布局", "select"], ["flexDirection", "方向", "select"], ["justifyContent", "主轴", "select"], ["alignItems", "交叉轴", "select"]],
+        spacing: [["gap", "间距"], ["paddingTop", "上内边距"], ["paddingRight", "右内边距"], ["paddingBottom", "下内边距"], ["paddingLeft", "左内边距"]],
         appearance: [["opacity", "透明度", "opacity"], ["borderRadius", "圆角", "numeric-radius"]],
         typography: [["fontFamily", "字体", "wide"], ["fontWeight", "字重", "select"], ["fontSize", "字号"], ["lineHeight", "行高"], ["letterSpacing", "字间距"], ["textAlign", "对齐", "select"], ["color", "文字色", "color"]],
         fill: [["backgroundColor", "填充", "color"]]
@@ -3024,6 +3376,7 @@
       // field is actively edited, update the page preview and the summary only
       // so the native input retains its focus and caret for normal continuous
       // typing. The next blur/selection refresh safely reconciles metadata.
+      if (this.browseMode) return true;
       if (focusSnapshot) {
         this.renderSelected(element);
         this.updatePreviewSummary();
@@ -3181,11 +3534,19 @@
 
     updateRecordButton(measurement = false) {
       const label = this.recordButton?.querySelector(".record-label");
-      if (label) label.textContent = measurement ? "记录测距问题" : "记录问题";
+      if (label) label.textContent = "记录问题";
       if (this.recordButton) this.recordButton.classList.toggle("has-measurement", measurement);
     }
 
     async openComposer(issue, measurementOverride = null, regionOverride = null) {
+      if (issue && this.issueDeletionFor(issue.id)) {
+        this.showToast("该问题正在删除，请先取消删除");
+        return;
+      }
+      if (this.composer?.saving || this.composer?.referencePromise) {
+        this.showToast("正在保存或添加参考图，请稍候");
+        return;
+      }
       if (!issue && this.composer?.captureStatus === "capturing") {
         this.showToast("上一条正在取证，请稍候");
         return;
@@ -3200,7 +3561,8 @@
         this.showView("paused");
         return;
       }
-      const effectiveMeasurement = measurementOverride
+      const regionTracker = regionOverride ? this.createRegionTracker(regionOverride) : null;
+      const effectiveMeasurement = regionOverride ? null : measurementOverride
         || this.currentMeasurement
         || (this.lastMeasurementSource === this.selected ? this.lastMeasurement : null);
       const hoveredTarget = this.hovered?.isConnected ? this.hovered : null;
@@ -3299,6 +3661,7 @@
           returnView: "inspect",
           issue: issueDraft,
           targetElement: isRegion ? null : element,
+          regionTracker,
           originalAttachments: {},
           type: "ui",
           severity: "cosmetic",
@@ -3311,7 +3674,8 @@
         const captureToken = this.createId("capture") + ":" + epoch;
         this.composer.captureToken = captureToken;
         const captureRect = this.captureRectForIssue(issueDraft, rect);
-        this.captureTargets.set(captureToken, { element: isRegion ? null : element, rect: captureRect, region: isRegion });
+        this.lockComposerOverlay();
+        this.captureTargets.set(captureToken, { element: isRegion ? null : element, rect: captureRect, region: isRegion, composer:this.composer });
         this.composer.capturePromise = this.captureEvidence(issueDraft, captureRect, epoch, captureToken);
       }
 
@@ -3333,7 +3697,7 @@
         const active = this.shadow.activeElement;
         // Do not steal the caret after the user has started typing or tabbed
         // into another field. Screenshot capture no longer blurs this input.
-        if (active === this.descriptionInput || active?.matches?.("input,textarea,select")) return;
+        if (active === this.descriptionInput || active?.matches?.("input,textarea,select,.segment")) return;
         this.descriptionInput.focus({ preventScroll: true });
         const end = this.descriptionInput.value.length;
         this.descriptionInput.setSelectionRange(end, end);
@@ -3346,29 +3710,39 @@
       this.recordTransition = null;
       if (!transition) return;
       if (transition.frame) window.cancelAnimationFrame(transition.frame);
+      window.clearTimeout(transition.timeout);
       for (const animation of transition.animations) animation.cancel();
       transition.ghost?.remove();
+      transition.resolve();
     }
 
     animateRecordTransition(rect) {
       this.cancelRecordTransition();
       if (!this.composer || this.browseMode || !rect || rect.width <= 0 || rect.height <= 0) return;
       const transition = { composer: this.composer, animations: [], ghost: null, frame: null };
+      // Keep the field interactive from the start; these timings only pace
+      // visual feedback and the screenshot's clean-capture boundary.
+      const motion = { flight:400, panel:220, receipt:180, receiptDelay:280, timeout:800 };
+      transition.finished = new Promise((resolve) => { transition.resolve = resolve; });
       this.recordTransition = transition;
+      // A suspended frame / animation must never hold up evidence capture.
+      transition.timeout = window.setTimeout(() => {
+        if (this.recordTransition === transition) this.cancelRecordTransition();
+      }, motion.timeout);
       transition.frame = window.requestAnimationFrame(() => {
         transition.frame = null;
         if (this.recordTransition !== transition) return;
         if (this.composer !== transition.composer || this.currentView !== "composer" || this.browseMode) { this.cancelRecordTransition(); return; }
-        const destination = this.evidenceStrip.querySelector(".evidence-thumb");
+        const destination = this.evidenceStrip.querySelector(".evidence-detail") || this.evidenceStrip.querySelector(".evidence-thumb");
         if (!destination?.animate || !this.panel?.animate) { this.cancelRecordTransition(); return; }
         const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
         const panelAnimation = this.panel.animate([{ opacity:reduced ? .8 : .65 }, { opacity:1 }],
-          { duration:reduced ? 100 : 180, easing:"cubic-bezier(0.23, 1, 0.32, 1)" });
+          { duration:reduced ? 100 : motion.panel, easing:"cubic-bezier(0.23, 1, 0.32, 1)" });
         transition.animations.push(panelAnimation);
         if (!reduced) {
           const target = destination.getBoundingClientRect();
-          const left = Math.max(0, rect.left);
-          const top = Math.max(0, rect.top);
+          const left = Math.max(0, Math.min(window.innerWidth, rect.left));
+          const top = Math.max(0, Math.min(window.innerHeight, rect.top));
           const width = Math.max(1, Math.min(window.innerWidth, rect.left + rect.width) - left);
           const height = Math.max(1, Math.min(window.innerHeight, rect.top + rect.height) - top);
           const ghost = document.createElement("div");
@@ -3380,20 +3754,34 @@
           ghost.append(label);
           this.shadow.append(ghost);
           transition.ghost = ghost;
-          const dx = target.left - left, dy = target.top - top;
-          const sx = target.width / width, sy = target.height / height;
-          const flight = ghost.animate([
-            { transform:"translate(0,0) scale(1,1)", opacity:.8 },
-            { transform:`translate(${dx * .55}px,${dy * .55 - Math.min(32, Math.abs(dx) * .06)}px) scale(${1 + (sx - 1) * .62},${1 + (sy - 1) * .62})`, opacity:.95, offset:.55 },
-            { transform:`translate(${dx}px,${dy}px) scale(${sx},${sy})`, opacity:0 }
-          ], { duration:280, easing:"cubic-bezier(0.22, 1, 0.36, 1)" });
+          // One scale preserves the source aspect ratio. Sample a quadratic
+          // arc instead of changing direction abruptly at a middle keyframe.
+          const scale = Math.min(target.width / width, target.height / height, 1);
+          const dx = target.left + (target.width - width * scale) / 2 - left;
+          const dy = target.top + (target.height - height * scale) / 2 - top;
+          const lift = Math.min(56, Math.hypot(dx, dy) * .08);
+          const frames = Array.from({ length:25 }, (_, index) => {
+            const t = index / 24;
+            const x = dx * t;
+            const y = dy * t - 2 * (1 - t) * t * lift;
+            const size = 1 + (scale - 1) * t;
+            return { offset:t, transform:`translate(${x}px,${y}px) scale(${size})`, opacity:t < .8 ? .9 : .9 * (1 - t) / .2 };
+          });
+          // A gentler front half makes the arc legible instead of racing
+          // through most of the distance in the first few frames.
+          const flight = ghost.animate(frames, { duration:motion.flight, easing:"cubic-bezier(0.22, 0.61, 0.36, 1)" });
           transition.animations.push(flight);
         }
-        const receipt = destination.animate([{ opacity:.45 }, { opacity:1 }], { duration:120, delay:reduced ? 0 : 180, easing:"ease-out" });
+        const receipt = destination.animate(reduced
+          ? [{ opacity:.65 }, { opacity:1 }]
+          : [{ opacity:.65, transform:"scale(.98)", offset:0 }, { opacity:1, transform:"scale(1.025)", offset:.6 }, { opacity:1, transform:"scale(1)", offset:1 }],
+        { duration:reduced ? 100 : motion.receipt, delay:reduced ? 0 : motion.receiptDelay, easing:"cubic-bezier(0.22, 0.61, 0.36, 1)" });
         transition.animations.push(receipt);
         Promise.all(transition.animations.map((animation) => animation.finished.catch(() => {}))).then(() => {
           transition.ghost?.remove();
+          window.clearTimeout(transition.timeout);
           if (this.recordTransition === transition) this.recordTransition = null;
+          transition.resolve();
         });
       });
     }
@@ -3431,33 +3819,35 @@
         this.renderMeasurementSnapshot(this.currentMeasurement);
       }
       this.descriptionInput.value = issue.description || "";
+      this.composer.formReady = true;
       this.composerError.textContent = "";
-      this.saveButton.disabled = false;
-      this.cancelComposerButton.disabled = false;
+      this.saveButton.disabled = Boolean(this.composer.saving);
+      this.cancelComposerButton.disabled = Boolean(this.composer.saving);
       this.updateComposerControls();
       this.renderCaptureState();
       this.renderComposerEvidence();
       this.saveButton.textContent = this.composer.mode === "edit" ? "保存修改" : "保存并继续";
+      this.cancelComposerButton.textContent = this.composer.mode === "edit" && issue.reviewStatus !== "draft" ? "取消编辑" : "稍后补充";
     }
 
     updateComposerControls() {
       if (!this.composer) return;
-      for (const select of this.shadow.querySelectorAll("[data-composer-choice]")) {
-        select.value = this.composer[select.dataset.composerChoice] || (select.dataset.composerChoice === "priority" ? "queued" : "");
-      }
       for (const button of this.shadow.querySelectorAll("[data-type]")) {
+        button.disabled = Boolean(this.composer.controlsLocked);
         const active = button.dataset.type === this.composer.type;
         button.classList.toggle("active", active);
         button.setAttribute("aria-checked", String(active));
         button.tabIndex = active ? 0 : -1;
       }
       for (const button of this.shadow.querySelectorAll("[data-severity]")) {
+        button.disabled = Boolean(this.composer.controlsLocked);
         const active = button.dataset.severity === this.normalizeSeverity(this.composer.severity);
         button.classList.toggle("active", active);
         button.setAttribute("aria-checked", String(active));
         button.tabIndex = active ? 0 : -1;
       }
       for (const button of this.shadow.querySelectorAll("[data-priority]")) {
+        button.disabled = Boolean(this.composer.controlsLocked);
         const active = button.dataset.priority === (this.composer.priority || "queued");
         button.classList.toggle("active", active);
         button.setAttribute("aria-checked", String(active));
@@ -3498,6 +3888,9 @@
         return;
       }
       this.composer.targetElement = target || null;
+      // A deliberate retry may re-resolve an equivalent node after a DOM
+      // rerender. Ordinary scroll events never replace the locked references.
+      delete this.composer.overlayAnchor;
       this.composer.issue.pageSnapshot = this.pageSnapshot();
       if (!isRegion) {
         this.composer.issue.elementAnchor = this.elementAnchor(target);
@@ -3511,7 +3904,7 @@
       const captureToken = this.createId("capture") + ":" + epoch;
       this.composer.captureToken = captureToken;
       const captureRect = this.captureRectForIssue(this.composer.issue, isRegion ? this.composer.issue.region : target.getBoundingClientRect());
-      this.captureTargets.set(captureToken, { element: target || null, rect: captureRect, region: isRegion });
+      this.captureTargets.set(captureToken, { element: target || null, rect: captureRect, region: isRegion, composer:this.composer });
       this.composer.capturePromise = this.captureEvidence(
         this.composer.issue,
         captureRect,
@@ -3532,10 +3925,12 @@
       };
       let response;
       try {
-        // The origin-to-evidence animation finishes before capture so it can
-        // never become part of the screenshot. No full-screen flash or input lock.
-        await new Promise((resolve) => window.setTimeout(resolve, 320));
-        this.cancelRecordTransition();
+        // openComposer installs its transition in this same turn. Wait for the
+        // actual landing, not a timer which can cut a slow frame mid-flight.
+        await Promise.resolve();
+        const transition = this.recordTransition;
+        if (transition?.composer?.captureToken === captureToken) await transition.finished;
+        if (!this.composer || this.composer.captureEpoch !== epoch) return null;
         response = await this.sendMessage({
           type: "UIDELTA_CAPTURE_EVIDENCE",
           issueId: issue.id,
@@ -3598,21 +3993,28 @@
     }
 
     async persistCapturedDraft() {
-      if (!this.composer || this.composer.mode !== "create") return;
+      if (!this.composer || (this.composer.mode !== "create" && this.composer.issue?.reviewStatus !== "draft")) return true;
+      const activeComposer = this.composer;
+      const description = activeComposer.formReady
+        ? this.descriptionInput?.value ?? activeComposer.issue.description ?? ""
+        : activeComposer.issue.description || "";
       const draft = {
-        ...this.composer.issue,
+        ...activeComposer.issue,
         reviewStatus: "draft",
-        title: "待补充描述",
-        description: "",
+        type: activeComposer.type,
+        severity: this.normalizeSeverity(activeComposer.severity),
+        priority: activeComposer.priority || "queued",
+        title: description.trim() ? this.issueTitle(description, activeComposer.type) : "待补充描述",
+        description,
         updatedAt: new Date().toISOString()
       };
       const response = await this.sendMessage({ type: "UIDELTA_PUT_ISSUE", issue: draft });
-      if (!response?.ok || !this.composer) {
-        if (this.composer) {
-          this.composer.captureStatus = "error";
-          this.composer.captureError = response?.error || "草稿保存失败，请重试。";
+      if (!response?.ok || this.composer !== activeComposer) {
+        if (this.composer === activeComposer) {
+          activeComposer.captureStatus = "error";
+          activeComposer.captureError = response?.error || "草稿保存失败，请重试。";
         }
-        return;
+        return false;
       }
       this.composer.issue = response.issue || draft;
       this.composer.mode = "edit";
@@ -3622,6 +4024,8 @@
       if (index >= 0) this.issues.splice(index, 1, this.composer.issue);
       else this.issues.push(this.composer.issue);
       this.updateCounts();
+      this.persistTabContext();
+      return true;
     }
 
     captureRectForIssue(issue, fallback) {
@@ -3648,21 +4052,31 @@
 
     renderComposerEvidence() {
       if (!this.composer || !this.evidenceStrip || !this.referenceList) return;
-      this.evidenceStrip.replaceChildren();
+      if (this.evidenceComposer !== this.composer) {
+        this.evidenceStrip.replaceChildren();
+        this.evidenceComposer = this.composer;
+      }
       this.evidenceStrip.setAttribute("aria-busy", String(this.composer.captureStatus === "capturing"));
       const attachments = this.composer.issue.attachments || {};
       const evidence = [
         [attachments.context, "全景"], [attachments.detail, "细节"]
       ];
-      for (const [assetId, label] of evidence) this.renderComposerAsset(this.evidenceStrip, assetId, label, false);
+      evidence.forEach(([assetId, label], index) => {
+        this.renderComposerAsset(this.evidenceStrip, assetId, label, false, this.evidenceStrip.children[index]);
+      });
       this.referenceList.replaceChildren();
       for (const assetId of (Array.isArray(attachments.references) ? attachments.references : [])) this.renderComposerAsset(this.referenceList, assetId, "参考", true);
     }
 
-    async renderComposerAsset(container, assetId, label, removable) {
+    async renderComposerAsset(container, assetId, label, removable, existing = null) {
       const composer = this.composer;
-      const wrapper = removable ? document.createElement("span") : document.createElement("button");
+      const wrapper = existing || document.createElement(removable ? "span" : "button");
+      if (existing?.evidenceRequest?.composer === composer && existing.evidenceRequest.assetId === assetId && existing.evidenceRequest.status !== "error") return;
+      const request = { composer, assetId, status:"loading" };
+      wrapper.evidenceRequest = request;
+      wrapper.replaceChildren();
       wrapper.className = removable ? "reference-chip" : "evidence-thumb";
+      if (!removable && label === "细节") wrapper.classList.add("evidence-detail");
       if (!removable) wrapper.type = "button";
       const caption = document.createElement("span");
       caption.textContent = label;
@@ -3674,20 +4088,36 @@
       }
       // Reserve both destinations before requesting assets; an asynchronous
       // thumbnail must not move the form or arrive in a different issue.
-      container.appendChild(wrapper);
+      if (!existing) container.appendChild(wrapper);
       if (!assetId) return;
       const response = await this.sendMessage({ type: "UIDELTA_GET_ASSET", assetId, thumbnail: true });
-      if (this.composer !== composer || !container.isConnected || wrapper.parentNode !== container) return;
+      const isCurrent = () => this.composer === composer && container.isConnected && wrapper.parentNode === container && wrapper.evidenceRequest === request;
+      if (!isCurrent()) return;
       if (!response?.ok || !response.dataUrl) {
+        request.status = "error";
         caption.textContent = label + " · 加载失败";
         wrapper.setAttribute("aria-label", caption.textContent);
         return;
       }
-      wrapper.classList.remove("evidence-placeholder");
       const image = document.createElement("img");
       image.src = response.dataUrl;
       image.alt = label + "图片";
+      // Decode off-DOM: a completed request is not necessarily a painted image.
+      // Keep the slot / caption in place until pixels are ready to crossfade.
+      try { if (image.decode) await image.decode(); }
+      catch (_) {
+        if (!isCurrent()) return;
+        request.status = "error";
+        caption.textContent = label + " · 加载失败";
+        wrapper.setAttribute("aria-label", caption.textContent);
+        return;
+      }
+      if (!isCurrent()) return;
+      request.status = "ready";
+      wrapper.classList.remove("evidence-placeholder");
       wrapper.appendChild(image);
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      image.animate?.([{ opacity:0 }, { opacity:1 }], { duration:reduced ? 80 : 240, easing:"ease-out" }).finished.catch(() => {});
       if (removable) {
         const remove = document.createElement("button");
         remove.type = "button";
@@ -3701,26 +4131,57 @@
         wrapper.disabled = false;
         wrapper.setAttribute("aria-label", "放大" + label + "截图");
         wrapper.appendChild(caption);
-        wrapper.addEventListener("click", () => this.previewAsset(assetId, label + "截图"));
+        if (!wrapper.evidencePreviewBound) {
+          wrapper.evidencePreviewBound = true;
+          wrapper.addEventListener("click", () => {
+            if (!wrapper.disabled) this.previewAsset(wrapper.evidenceRequest.assetId, label + "截图");
+          });
+        }
       }
     }
 
     async addReferenceImages(fileList) {
-      if (!this.composer || !fileList?.length) return;
+      if (!this.composer || this.composer.saving || this.composer.referencePromise || !fileList?.length) return;
+      const composer = this.composer;
       const files = Array.from(fileList).filter((file) => file.type.startsWith("image/")).slice(0, 10);
-      const current = Array.isArray(this.composer.issue.attachments?.references) ? this.composer.issue.attachments.references : [];
-      for (const file of files.slice(0, Math.max(0, 10 - current.length))) {
-        const dataUrl = await this.readFileAsDataUrl(file);
-        const response = await this.sendMessage({ type: "UIDELTA_PUT_REFERENCE_ASSET", issueId: this.composer.issue.id, sessionId: this.composer.issue.sessionId, name: file.name, dataUrl });
-        if (!response?.ok) {
-          this.composerError.textContent = response?.error || "参考图片添加失败。";
-          break;
+      if (!files.length) { this.composerError.textContent = "请选择图片文件。"; return; }
+      composer.referenceError = "";
+      this.referenceInput.disabled = true;
+      // Wait for capture's initial draft transaction before creating pending
+      // reference assets; that transaction prunes attachments it did not see.
+      const upload = (async () => {
+        if (composer.capturePromise) await composer.capturePromise;
+        if (this.composer !== composer) return;
+        const current = [...(composer.issue.attachments?.references || [])];
+        if (current.length >= 10) { this.composerError.textContent = "最多添加 10 张参考图。"; return; }
+        for (const file of files.slice(0, Math.max(0, 10 - current.length))) {
+          const dataUrl = await this.readFileAsDataUrl(file);
+          if (this.composer !== composer) return;
+          const response = await this.sendMessage({ type: "UIDELTA_PUT_REFERENCE_ASSET", issueId: composer.issue.id, sessionId: composer.issue.sessionId, name: file.name, dataUrl });
+          if (this.composer !== composer) return;
+          if (!response?.ok || !response.asset?.id) {
+            composer.referenceError = response?.error || "参考图片添加失败。";
+            this.composerError.textContent = composer.referenceError;
+            break;
+          }
+          current.push(response.asset.id);
+          composer.issue.attachments = { ...(composer.issue.attachments || {}), references: [...current] };
+          this.persistTabContext();
         }
-        current.push(response.asset.id);
+      })();
+      composer.referencePromise = upload;
+      try { await upload; }
+      catch (error) {
+        composer.referenceError = error?.message || "参考图片读取失败，请重试。";
+        if (this.composer === composer) this.composerError.textContent = composer.referenceError;
+      } finally {
+        composer.referencePromise = null;
+        if (this.composer === composer) {
+          this.referenceInput.disabled = Boolean(composer.controlsLocked);
+          this.referenceInput.value = "";
+          this.renderComposerEvidence();
+        }
       }
-      this.composer.issue.attachments = { ...(this.composer.issue.attachments || {}), references: current };
-      this.referenceInput.value = "";
-      this.renderComposerEvidence();
     }
 
     readFileAsDataUrl(file) {
@@ -3733,10 +4194,12 @@
     }
 
     async removeReferenceAsset(assetId) {
-      if (!this.composer || !assetId) return;
+      if (!this.composer || this.composer.saving || this.composer.referencePromise || !assetId) return;
       const references = (this.composer.issue.attachments?.references || []).filter((id) => id !== assetId);
       this.composer.issue.attachments = { ...(this.composer.issue.attachments || {}), references };
-      await this.sendMessage({ type: "UIDELTA_DELETE_ASSETS", assetIds: [assetId] });
+      // Removal is an unsaved edit. putIssue atomically prunes unused assets
+      // on commit; cancelling must leave the original evidence intact.
+      this.persistTabContext();
       this.renderComposerEvidence();
     }
 
@@ -3753,9 +4216,9 @@
     }
 
     async saveComposer() {
-      if (!this.composer || this.saveButton.disabled) return;
+      if (!this.composer || this.composer.saving || this.saveButton.disabled) return;
       const activeComposer = this.composer;
-      const description = this.descriptionInput.value.trim();
+      let description = this.descriptionInput.value.trim();
       if (!description) {
         this.composerError.textContent = "请写一句问题描述。";
         this.descriptionInput.focus();
@@ -3767,6 +4230,19 @@
       this.saveButton.textContent = this.composer.captureStatus === "capturing" ? "正在完成截图…" : "正在保存…";
       if (this.composer.capturePromise) await this.composer.capturePromise;
       if (this.composer !== activeComposer) return;
+      if (activeComposer.referencePromise) {
+        this.saveButton.textContent = "正在添加参考图…";
+        await activeComposer.referencePromise.catch(() => {});
+        if (this.composer !== activeComposer) return;
+        if (activeComposer.referenceError) {
+          activeComposer.saving = false;
+          this.saveButton.disabled = false;
+          this.cancelComposerButton.disabled = false;
+          this.saveButton.textContent = this.composer.mode === "edit" ? "保存修改" : "保存并继续";
+          this.composerError.textContent = activeComposer.referenceError + " 可重试添加，或再次保存现有内容。";
+          return;
+        }
+      }
       if (this.composer.captureStatus !== "ready" || !this.composer.issue.attachments?.context || !this.composer.issue.attachments?.detail) {
         activeComposer.saving = false;
         this.saveButton.disabled = false;
@@ -3777,8 +4253,21 @@
         return;
       }
 
+      // Capture may still be running when Save is pressed. Keep accepting
+      // typing during that wait, then submit the final text and choices.
+      description = this.descriptionInput.value.trim();
+      if (!description) {
+        activeComposer.saving = false;
+        this.saveButton.disabled = false;
+        this.cancelComposerButton.disabled = false;
+        this.saveButton.textContent = this.composer.mode === "edit" ? "保存修改" : "保存并继续";
+        this.composerError.textContent = "请写一句问题描述。";
+        if (!this.browseMode) this.descriptionInput.focus();
+        return;
+      }
       let issue = {
         ...this.composer.issue,
+        reviewStatus: "accepted",
         type: this.composer.type,
         severity: this.normalizeSeverity(this.composer.severity),
         severitySource: "manual",
@@ -3792,7 +4281,23 @@
         } : this.composer.issue.captureMetrics,
         updatedAt: new Date().toISOString()
       };
-      const response = await this.sendMessage({ type: "UIDELTA_PUT_ISSUE", issue });
+      const choices = Array.from(this.shadow.querySelectorAll(".segment"));
+      activeComposer.controlsLocked = true;
+      const originalReadOnly = this.descriptionInput.readOnly;
+      const disabled = choices.map((select) => select.disabled);
+      const originalReferenceDisabled = this.referenceInput?.disabled;
+      this.descriptionInput.readOnly = true;
+      choices.forEach((select) => { select.disabled = true; });
+      if (this.referenceInput) this.referenceInput.disabled = true;
+      let response;
+      try {
+        response = await this.sendMessage({ type: "UIDELTA_PUT_ISSUE", issue });
+      } finally {
+        activeComposer.controlsLocked = false;
+        this.descriptionInput.readOnly = originalReadOnly;
+        choices.forEach((select, index) => { select.disabled = disabled[index]; });
+        if (this.referenceInput) this.referenceInput.disabled = originalReferenceDisabled;
+      }
       if (this.composer !== activeComposer) return;
       if (!response || !response.ok) {
         activeComposer.saving = false;
@@ -3805,6 +4310,7 @@
       issue = response.issue || issue;
       if (response.session) this.session = response.session;
 
+      const previousRecordedCount = this.recordedIssueCount();
       const existingIndex = this.issues.findIndex((item) => item.id === issue.id);
       if (existingIndex >= 0) this.issues.splice(existingIndex, 1, issue);
       else this.issues.push(issue);
@@ -3814,8 +4320,10 @@
       this.composer = null;
       this.captureEpoch += 1;
       this.updateCounts();
+      this.persistTabContext();
       this.renderPins();
       this.showView(returnView === "composer" ? "inspect" : returnView);
+      this.animateIssueCount(previousRecordedCount, this.recordedIssueCount());
       this.showToast(issue.displayId + " 已保存");
     }
 
@@ -3833,34 +4341,212 @@
         this.showToast("正在保存取证草稿，请稍候");
         return;
       }
+      if (composer.referencePromise) {
+        this.showToast("正在添加参考图，请稍候");
+        return;
+      }
+      if (composer.issue?.reviewStatus === "draft" || composer.mode === "create") {
+        const saved = await this.persistCapturedDraft();
+        if (!saved) { this.showToast("草稿未保存，请重试"); return; }
+      }
       this.composer = null;
       this.captureEpoch += 1;
       const returnView = composer.returnView || (this.session?.status === "paused" ? "paused" : "inspect");
       this.showView(returnView === "composer" ? "inspect" : returnView);
-      this.showToast("已回到检查面板，记录已保留为草稿");
+      this.showToast(composer.issue?.reviewStatus === "draft" || composer.mode === "create" ? "草稿已保留" : "已取消编辑，原记录未修改");
     }
 
-    async deleteIssue(issueId) {
-      const issue = this.issues.find((item) => item.id === issueId);
-      if (!issue || !window.confirm("删除 " + issue.displayId + "？截图证据也会一并删除。")) return;
-      const response = await this.sendMessage({ type: "UIDELTA_DELETE_ISSUE", issueId });
-      if (!response || !response.ok) {
-        this.showToast((response && response.error) || "删除失败");
+    issueDeletionFor(issueId) {
+      return Array.from(this.issueDeletions || []).find((job) => job.issueIds.includes(issueId));
+    }
+
+    deleteIssue(issueId) {
+      const pending = this.issueDeletionFor(issueId);
+      if (pending) { this.cancelIssueDeletion(pending); return; }
+      this.beginIssueDeletion([issueId]);
+    }
+
+    clearIssues() {
+      const pending = Array.from(this.issueDeletions || []).find((job) => job.clearAll);
+      if (pending) { this.cancelIssueDeletion(pending); return; }
+      // Snapshot this session, not the current filter or issues added later.
+      if (this.issueDeletions?.size) return;
+      this.beginIssueDeletion(this.issues.map((issue) => issue.id), true);
+    }
+
+    beginIssueDeletion(ids, clearAll = false) {
+      if (!this.session || !["active", "paused"].includes(this.session.status)) return;
+      if (this.composer?.saving || this.composer?.referencePromise || this.composer?.captureStatus === "capturing") {
+        this.showToast("请等待当前问题保存完成"); return;
+      }
+      const issueIds = Array.from(new Set(ids)).filter((id) => this.issues.some((issue) => issue.id === id) && !this.issueDeletionFor(id));
+      if (!issueIds.length) return;
+      this.issueDeletions ||= new Set();
+      const job = { issueIds, clearAll, sessionId:this.session.id, phase:"countdown", remaining:3, deadline:Date.now() + 3000 };
+      this.issueDeletions.add(job);
+      this.setIssueDeletionStatus(clearAll ? `将清空本次全部 ${issueIds.length} 个问题，再次点击可取消。` : "3 秒后删除，再次点击可取消。", false);
+      this.renderIssueDeletionControls();
+      const tick = () => {
+        if (!this.issueDeletions.has(job) || job.phase !== "countdown") return;
+        if (!this.enabled || this.browseMode || this.currentView !== "inbox" || document.hidden || this.session?.id !== job.sessionId) {
+          this.cancelIssueDeletion(job); return;
+        }
+        job.remaining = Math.max(0, Math.ceil((job.deadline - Date.now()) / 1000));
+        if (job.remaining === 0) { this.commitIssueDeletion(job); return; }
+        this.renderIssueDeletionControls();
+        job.timer = window.setTimeout(tick, Math.min(1000, job.deadline - Date.now()));
+      };
+      job.timer = window.setTimeout(tick, 1000);
+    }
+
+    setIssueDeletionStatus(text, error = false, transient = false) {
+      if (!this.issueDeletionStatus) return;
+      window.clearTimeout(this.issueDeletionStatusTimer);
+      this.issueDeletionStatus.textContent = text;
+      this.issueDeletionStatus.classList.toggle("is-error", error);
+      if (transient) this.issueDeletionStatusTimer = window.setTimeout(() => {
+        this.issueDeletionStatus.textContent = "";
+        this.issueDeletionStatusTimer = null;
+      }, 3200);
+    }
+
+    cancelIssueDeletion(job, quiet = false) {
+      if (job.phase !== "countdown" || !this.issueDeletions?.has(job)) return;
+      window.clearTimeout(job.timer);
+      this.issueDeletions.delete(job);
+      this.renderIssueDeletionControls();
+      if (!quiet) this.setIssueDeletionStatus("已取消删除，问题和截图已保留。", false, true);
+    }
+
+    cancelPendingIssueDeletions() {
+      const count = this.issueDeletions?.size || 0;
+      for (const job of this.issueDeletions || []) this.cancelIssueDeletion(job, true);
+      if ((this.issueDeletions?.size || 0) < count) this.setIssueDeletionStatus("已取消删除，问题和截图已保留。", false, true);
+    }
+
+    renderIssueDeletionControls() {
+      for (const row of this.issueList?.querySelectorAll?.(".issue-row") || []) {
+        const job = this.issueDeletionFor(row.dataset.issueId);
+        row.classList.toggle("is-delete-pending", Boolean(job));
+        row.setAttribute("aria-busy", String(Boolean(job && job.phase !== "countdown")));
+        for (const button of row.querySelectorAll(".row-action")) {
+          if (button.dataset.action !== "delete-issue") { button.disabled = Boolean(job); continue; }
+          button.disabled = Boolean(job && (job.clearAll || job.phase !== "countdown"));
+          button.classList.toggle("is-counting", job?.phase === "countdown");
+          button.classList.toggle("is-deleting", Boolean(job && job.phase !== "countdown"));
+          const text = job ? (job.phase === "countdown" ? "删除 " + job.remaining : "删除中…") : "";
+          let value = button.querySelector(".delete-countdown");
+          if (text && !value) { value = document.createElement("span"); value.className = "delete-countdown"; button.appendChild(value); }
+          if (value) { if (text) value.textContent = text; else value.remove(); }
+          const label = job ? (job.phase === "countdown" ? `删除倒计时 ${job.remaining} 秒${job.clearAll ? "" : "，点击取消"}` : "正在删除") : "删除问题";
+          button.title = label; button.setAttribute("aria-label", label);
+        }
+      }
+      if (this.clearIssuesButton) {
+        const job = Array.from(this.issueDeletions || []).find((item) => item.clearAll);
+        this.clearIssuesButton.textContent = job ? (job.phase === "countdown" ? "清空 " + job.remaining : "清空中…") : "清空";
+        this.clearIssuesButton.disabled = job ? job.phase !== "countdown" : !this.issues.length || Boolean(this.issueDeletions?.size);
+        this.clearIssuesButton.title = job ? "清空本次走查，倒计时内再次点击可取消" : "清空本次走查的全部问题与截图，不受筛选影响";
+        this.clearIssuesButton.setAttribute("aria-label", job ? this.clearIssuesButton.title + "，剩余 " + job.remaining + " 秒" : this.clearIssuesButton.title);
+      }
+    }
+
+    async commitIssueDeletion(job) {
+      if (!this.issueDeletions?.has(job) || job.phase !== "countdown") return;
+      job.phase = "committing";
+      window.clearTimeout(job.timer);
+      this.renderIssueDeletionControls();
+      let response;
+      try {
+        response = await this.sendMessage(job.clearAll
+          ? { type:"UIDELTA_DELETE_ISSUES", sessionId:job.sessionId, issueIds:job.issueIds }
+          : { type:"UIDELTA_DELETE_ISSUE", issueId:job.issueIds[0] });
+      } catch (error) { response = { ok:false, error:error?.message }; }
+      if (!response?.ok) {
+        this.issueDeletions.delete(job);
+        this.renderIssueDeletionControls();
+        this.setIssueDeletionStatus(response?.error || "删除失败，问题已保留，请重试。", true);
         return;
       }
-      const assets = issue.attachments || {};
-      await this.sendMessage({ type: "UIDELTA_DELETE_ASSETS", assetIds: [assets.context, assets.detail].filter(Boolean) });
-      this.issues = this.issues.filter((item) => item.id !== issueId);
-      this.updateCounts();
-      this.renderIssueList();
-      this.renderPins();
-      this.showToast(issue.displayId + " 已删除");
+      job.phase = "removing";
+      // Serialise visual removals so overlapping deletes never fight over layout.
+      const apply = async () => {
+        if (this.session?.id !== job.sessionId) return;
+        const ids = new Set(job.issueIds);
+        this.issues = this.issues.filter((issue) => !ids.has(issue.id));
+        if (response.session && Number(response.session.revision) >= Number(this.session.revision || 0)) this.session = response.session;
+        if (this.composer && ids.has(this.composer.issue?.id)) { this.composer = null; this.captureEpoch += 1; }
+        this.pruneDeliverySelection();
+        this.updateCounts(); this.renderPins(); this.persistTabContext();
+        await this.removeDeletedIssueCards(ids);
+        this.updateIssueListEmpty(this.issueList.querySelectorAll(".issue-row").length);
+        this.setIssueDeletionStatus(job.clearAll ? `已清空 ${job.issueIds.length} 个问题及其截图。` : "问题及其截图已删除。", false, true);
+      };
+      this.issueRemovalQueue = (this.issueRemovalQueue || Promise.resolve()).catch(() => {}).then(apply);
+      try { await this.issueRemovalQueue; }
+      catch (_) {
+        if (this.session?.id === job.sessionId) {
+          this.renderIssueList();
+          this.setIssueDeletionStatus("问题已删除，列表已刷新。", false, true);
+        }
+      }
+      finally { this.issueDeletions.delete(job); this.renderIssueDeletionControls(); }
+    }
+
+    async playIssueRemovalMotion(node, frames, duration) {
+      if (!node?.isConnected || !node.animate) return;
+      let animation, timer;
+      try {
+        animation = node.animate(frames, { duration, easing:"cubic-bezier(.23,1,.32,1)", fill:"both" });
+        await Promise.race([animation.finished.catch(() => {}), new Promise((resolve) => { timer = window.setTimeout(resolve, duration + 100); })]);
+      } catch (_) { /* Animation failure must never undo or block a confirmed deletion. */ }
+      finally { window.clearTimeout(timer); animation?.cancel(); }
+    }
+
+    async removeDeletedIssueCards(ids) {
+      const rows = Array.from(this.issueList.querySelectorAll(".issue-row"));
+      const removed = rows.filter((row) => ids.has(row.dataset.issueId));
+      const focused = removed.some((row) => row.contains(this.shadow.activeElement));
+      const index = rows.findIndex((row) => removed.includes(row));
+      const motion = this.enabled && !this.browseMode && this.currentView === "inbox" && !document.hidden;
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      if (motion) await Promise.all(removed.map((row) => this.playIssueRemovalMotion(row,
+        reduced ? [{opacity:1},{opacity:0}] : [{opacity:1,transform:"translateX(0)"},{opacity:0,transform:"translateX(6px)"}], reduced ? 100 : 180)));
+      // Measure immediately before removal; filtering/scrolling may have changed during the fade.
+      const live = Array.from(this.issueList.querySelectorAll(".issue-row"));
+      const survivors = live.filter((row) => !ids.has(row.dataset.issueId));
+      const before = new Map(survivors.map((row) => [row, row.getBoundingClientRect().top]));
+      for (const row of live) if (ids.has(row.dataset.issueId)) row.remove();
+      if (focused && this.currentView === "inbox" && !this.browseMode) {
+        const next = survivors[Math.min(Math.max(0, index), survivors.length - 1)]?.querySelector(".row-action");
+        (next || this.shadow.querySelector(".issue-search-input"))?.focus({preventScroll:true});
+      }
+      if (motion && !reduced) await Promise.all(survivors.map((row) => {
+        const dy = before.get(row) - row.getBoundingClientRect().top;
+        if (Math.abs(dy) < 1) return;
+        return this.playIssueRemovalMotion(row, [{transform:`translateY(${dy}px)`},{transform:"translateY(0)"}], 240);
+      }));
     }
 
     inboxCardStyles() {
       return `
-        .inbox-view .issue-list { display:flex; flex-direction:column; min-width:0; gap:8px; padding:10px 0; }
-        .inbox-view .issue-row { display:flex; flex-direction:column; width:100%; min-width:0; gap:9px; padding:10px; border:1px solid var(--ud-border); border-radius:9px; background:var(--ud-elevated); }
+        .inbox-view .issue-list { display:flex; flex-direction:column; min-width:0; gap:8px; padding:8px 0; overflow-anchor:none; }
+        .inbox-view .inbox-search { display:flex; width:100%; min-width:0; height:32px; margin-top:6px; gap:7px; padding:0 6px 0 9px; border:1px solid var(--ud-border)!important; border-radius:6px!important; background:var(--ud-inset)!important; color:var(--ud-text-muted)!important; box-shadow:none!important; }
+        .inbox-view .inbox-search:focus-within { border-color:var(--ud-focus)!important; box-shadow:0 0 0 2px var(--ud-focus-soft)!important; }
+        .inbox-view .search-icon { display:block; flex:none; width:14px; height:14px; }
+        .inbox-view .issue-search-input { flex:1 1 0; width:0; min-width:0; height:100%; margin:0; padding:0; border:0!important; border-radius:0; outline:0!important; background:transparent!important; color:var(--ud-text); box-shadow:none!important; font:400 12px/1.4 var(--ud-font); }
+        .inbox-view .issue-search-input::placeholder { color:var(--ud-text-muted); opacity:1; font-weight:400; }
+        .inbox-view .issue-search-input::-webkit-search-cancel-button { -webkit-appearance:none; }
+        .inbox-view .search-clear { display:grid; flex:none; width:24px; height:24px; min-height:24px; padding:4px; place-items:center; border:0; border-radius:4px; background:transparent; color:var(--ud-text-muted); cursor:pointer; }
+        .inbox-view .search-clear[hidden] { display:none; }
+        .inbox-view .search-clear:hover { background:var(--ud-hover); color:var(--ud-text); }
+        .inbox-view .search-clear svg { display:block; width:14px; height:14px; }
+        .inbox-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        .inbox-heading .clear-issues { min-height:28px; height:28px; min-width:56px; padding:0 8px; color:var(--ud-danger); font-size:11px; }
+        .issue-deletion-status { margin:0; color:var(--ud-text-muted); font-size:11px; line-height:1.5; }
+        .issue-deletion-status:not(:empty) { padding:0 0 8px; }
+        .issue-deletion-status.is-error { color:var(--ud-danger); }
+        .inbox-view .issue-row { display:flex; flex-direction:column; align-items:stretch; width:100%; min-width:0; gap:6px; padding:8px; border:1px solid var(--ud-border); border-radius:9px; background:var(--ud-elevated); }
         .inbox-view .issue-row:hover { border-color:var(--ud-border-strong); background:var(--ud-elevated); }
         .inbox-view .issue-card-head { display:flex; min-width:0; align-items:center; flex-wrap:wrap; gap:6px; }
         .inbox-view .issue-select { width:16px; height:16px; margin:0; flex:none; border-radius:4px; }
@@ -3869,25 +4555,36 @@
         .inbox-view .issue-card-tags { display:flex; min-width:0; align-items:center; flex-wrap:wrap; gap:4px; margin-left:auto; }
         .inbox-view .issue-card-tag { padding:2px 4px; border-radius:4px; background:var(--ud-inset); color:var(--ud-text-secondary); font-size:10px; font-weight:500; line-height:1.4; white-space:nowrap; }
         .inbox-view .issue-card-tag.is-urgent { background:rgba(237,139,155,.12); color:#f4b3bf; }
-        .inbox-view .issue-copy { display:grid; min-width:0; gap:5px; }
-        .inbox-view .issue-title { display:block; max-width:100%; margin:0; overflow:visible; color:var(--ud-text); font-size:13px; font-weight:600; line-height:1.55; text-overflow:clip; white-space:pre-wrap; overflow-wrap:anywhere; -webkit-line-clamp:unset; -webkit-box-orient:unset; }
-        .inbox-view .issue-description { margin:0; color:var(--ud-text-secondary); font-size:12px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
-        .inbox-view .issue-visual { position:static; display:grid; width:100%; height:auto; min-width:0; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; padding:0; border:0; border-radius:0; background:transparent; }
-        .inbox-view .issue-shot { display:flex; min-width:0; margin:0; flex-direction:column; overflow:hidden; border:1px solid var(--ud-border); border-radius:6px; background:var(--ud-inset); }
-        .inbox-view .issue-shot:not(:has(img))::before { display:grid; height:64px; place-items:center; color:var(--ud-text-muted); content:'加载截图…'; font-size:10px; }
-        .inbox-view .issue-thumb { display:block; order:0; width:100%; height:64px; min-width:0; border-radius:0; background:var(--ud-inset); object-fit:contain; }
-        .inbox-view .issue-thumb:hover,.inbox-view .issue-thumb:focus-visible { transform:none; filter:brightness(1.08); outline:2px solid var(--ud-accent); outline-offset:-2px; }
-        .inbox-view .issue-shot-caption { padding:3px 4px; color:var(--ud-text-muted); font-size:10px; line-height:1.4; text-align:center; }
-        .inbox-view .issue-location { display:grid; width:100%; min-width:0; grid-template-columns:26px minmax(0,1fr); align-items:start; gap:4px; padding:0; border:0; border-radius:4px; background:transparent; color:var(--ud-text-muted); text-align:left; cursor:pointer; font-size:11px; line-height:1.45; }
-        .inbox-view .issue-location-copy { display:grid; min-width:0; gap:1px; }
-        .inbox-view .issue-location-name,.inbox-view .issue-location-path { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .inbox-view .issue-copy { display:grid; min-width:0; gap:4px; }
+        .inbox-view .issue-title { display:block; max-width:100%; margin:0; overflow:visible; color:var(--ud-text); font-size:13px; font-weight:600; line-height:1.4; text-overflow:clip; white-space:pre-wrap; overflow-wrap:anywhere; -webkit-line-clamp:unset; -webkit-box-orient:unset; }
+        .inbox-view .issue-description { margin:0; color:var(--ud-text-secondary); font-size:12px; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
+        .inbox-view .issue-visual { position:relative; display:block; flex:none; width:100%; height:76px; min-width:0; padding:0; border:0; border-radius:0; background:transparent; }
+        .inbox-view .issue-visual .issue-shot { position:absolute; left:0; top:0; width:84%; height:70px; min-width:0; margin:0; overflow:hidden; border:2px solid var(--ud-inset); border-radius:10px; background:var(--ud-inset); }
+        .inbox-view .issue-visual .issue-shot.detail { left:auto; top:auto; right:0; bottom:0; width:54%; height:48px; box-shadow:0 0 0 2px var(--ud-elevated); }
+        .inbox-view .issue-visual[data-layout='single'] { height:70px; }
+        .inbox-view .issue-visual[data-layout='single'] .issue-shot { left:0; top:0; width:100%; height:70px; box-shadow:none; }
+        .inbox-view .issue-shot:focus-within { z-index:3; outline:2px solid var(--ud-focus); outline-offset:1px; }
+        .inbox-view .issue-shot:not(:has(img))::before { position:absolute; inset:0; display:grid; padding:16px 4px 2px; place-items:center; color:var(--ud-text-muted); content:'加载中…'; font-size:10px; }
+        .inbox-view .issue-shot[data-state='error']::before { content:'加载失败'; padding-bottom:24px; }
+        .inbox-view .issue-shot.detail[data-state='error']::before { content:''; }
+        .inbox-view .issue-shot .thumbnail-retry { position:absolute; left:50%; bottom:2px; transform:translateX(-50%); margin:0; min-height:24px; height:24px; padding:0 4px; font-size:10px; white-space:nowrap; }
+        .inbox-view .issue-thumb { display:block; width:100%; height:100%; min-width:0; border-radius:0; background:var(--ud-inset); object-fit:contain; }
+        .inbox-view .issue-thumb:hover,.inbox-view .issue-thumb:focus-visible { transform:none; filter:brightness(1.04); outline:0; }
+        .inbox-view .issue-shot-caption { position:absolute; left:4px; top:4px; z-index:1; padding:2px 6px; border-radius:6px; background:var(--ud-accent); color:var(--ud-on-accent); font-size:9px; font-weight:600; line-height:1.3; text-align:center; pointer-events:none; }
+        .inbox-view .issue-location { display:flex; flex-wrap:nowrap; width:100%; min-width:0; align-items:center; gap:6px; padding:0; border:0; border-radius:0; background:transparent; color:var(--ud-text-muted); text-align:left; font-size:11px; line-height:1.4; white-space:nowrap; }
+        .inbox-view .issue-location>span:first-child { flex:none; }
+        .inbox-view .issue-location-copy { display:block; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .inbox-view .issue-location-name { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .inbox-view .issue-location-name { color:var(--ud-text-secondary); }
-        .inbox-view .issue-location-path { font-size:10px; }
-        .inbox-view .issue-location:hover .issue-location-name { color:var(--ud-text); }
-        .inbox-view .issue-location:focus-visible { outline:2px solid var(--ud-accent); outline-offset:3px; }
-        .inbox-view .issue-row .row-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); grid-column:auto; gap:4px; padding-top:7px; border-top:1px solid var(--ud-border); }
-        .inbox-view .issue-row .row-action { display:flex; width:100%; height:30px; align-items:center; justify-content:center; gap:4px; padding:0 4px; border-radius:5px; color:var(--ud-text-secondary); font-size:11px; line-height:1; }
-        .inbox-view .row-action svg { width:13px; height:13px; flex:none; }
+        .inbox-view .issue-row .row-actions { display:flex; flex:none; align-self:stretch; width:100%; justify-content:flex-end; grid-column:auto; gap:4px; margin-left:auto; padding-top:4px; border-top:1px solid var(--ud-border); }
+        .inbox-view .issue-row .row-action { position:relative; display:flex; flex:none; width:32px; height:32px; min-height:32px; align-items:center; justify-content:center; gap:4px; padding:0; border-radius:5px; color:var(--ud-text-secondary); font-size:11px; line-height:1; overflow:hidden; }
+        .inbox-view .row-action svg { width:16px; height:16px; flex:none; }
+        .inbox-view .issue-row.is-delete-pending { border-color:var(--ud-danger); }
+        .inbox-view .issue-row .row-action:is(.is-counting,.is-deleting) { width:76px; padding:0 8px; font-variant-numeric:tabular-nums; }
+        .inbox-view .row-action:is(.is-counting,.is-deleting) svg { display:none; }
+        .inbox-view .row-action.is-counting::after { content:''; position:absolute; left:0; right:0; bottom:0; height:2px; background:currentColor; transform-origin:left; animation:uidelta-delete-progress 3s linear forwards; }
+        @keyframes uidelta-delete-progress { from { transform:scaleX(1); } to { transform:scaleX(0); } }
+        @media(prefers-reduced-motion:reduce) { .inbox-view .row-action.is-counting::after { animation:none; } }
         .inbox-view .issue-row .row-action:hover { background:rgba(255,255,255,.07); color:var(--ud-text); }
         .inbox-view .issue-row .row-action:focus-visible { outline:2px solid var(--ud-accent); outline-offset:1px; }
         .inbox-view .issue-row .row-action.delete { color:#d99da8; }
@@ -3897,6 +4594,7 @@
 
     renderIssueList() {
       this.issueList.replaceChildren();
+      if (this.issueSearchClear) this.issueSearchClear.hidden = !this.issueSearch?.value;
       for (const filter of this.shadow.querySelectorAll("[data-filter]")) {
         const active = filter.dataset.filter === this.issueFilter;
         filter.classList.toggle("active", active);
@@ -3923,11 +4621,7 @@
         })
         .sort((a, b) => Number(a.sequence) - Number(b.sequence));
       this.pruneDeliverySelection();
-      this.issueEmpty.classList.toggle("visible", filtered.length === 0);
-      const emptyTitle = this.issueEmpty.querySelector("strong");
-      const emptyHint = this.issueEmpty.querySelector("span");
-      if (emptyTitle) emptyTitle.textContent = this.issues.length ? "没有匹配问题" : "还没有问题";
-      if (emptyHint) emptyHint.textContent = this.issues.length ? "调整搜索词或切换筛选。" : "选中元素后按 R 记录。";
+      this.updateIssueListEmpty(filtered.length);
 
       for (const issue of filtered) {
         const row = document.createElement("article");
@@ -3970,15 +4664,15 @@
           contextAssetId ? { assetId: contextAssetId, kind: "context", caption: "全景截图" } : null,
           detailAssetId ? { assetId: detailAssetId, kind: "detail", caption: "局部截图" } : null
         ].filter(Boolean);
+        visual.dataset.layout = previewItems.length > 1 ? "stacked" : "single";
         for (const item of previewItems) {
           const shot = document.createElement("figure");
-          shot.className = "issue-shot";
+          shot.className = "issue-shot " + item.kind;
           const caption = document.createElement("figcaption");
           caption.className = "issue-shot-caption";
-          caption.textContent = item.kind === "context" ? "全景 · 点开查看" : "局部 · 点开查看";
+          caption.textContent = item.kind === "context" ? "全景" : "细节";
           shot.appendChild(caption);
           visual.appendChild(shot);
-          this.loadIssueThumbnail(item.assetId, shot, caption, item.kind, previewItems);
         }
         const copy = document.createElement("div");
         copy.className = "issue-copy";
@@ -4004,11 +4698,10 @@
         } catch (_) {
           pagePath = pagePath.split(/[?#]/)[0] || "/";
         }
-        const pageName = String(page.title || "").trim();
-        const pageLocation = document.createElement("button");
-        pageLocation.type = "button";
+        const pageName = String(page.title || "").trim().replace(/\s+/g, " ");
+        const pageLocation = document.createElement("div");
         pageLocation.className = "issue-location";
-        pageLocation.title = "定位到：" + (pageName ? pageName + " · " : "") + pagePath;
+        pageLocation.title = "页面：" + (pageName ? pageName + " · " : "") + pagePath;
         pageLocation.setAttribute("aria-label", pageLocation.title);
         const locationLabel = document.createElement("span");
         locationLabel.textContent = "页面";
@@ -4018,12 +4711,6 @@
         locationName.className = "issue-location-name";
         locationName.textContent = pageName || (pagePath === "/" ? "首页" : pagePath);
         locationCopy.appendChild(locationName);
-        if (pageName && pagePath !== "/") {
-          const locationPath = document.createElement("span");
-          locationPath.className = "issue-location-path";
-          locationPath.textContent = pagePath;
-          locationCopy.appendChild(locationPath);
-        }
         pageLocation.append(locationLabel, locationCopy);
         const actions = document.createElement("div");
         actions.className = "row-actions";
@@ -4033,16 +4720,35 @@
           ["delete-issue", "删除", "delete"]
         ]) {
           const button = this.rowAction(action, issue.id, label + "问题", label, extraClass);
-          const buttonLabel = document.createElement("span");
-          buttonLabel.textContent = label;
-          button.appendChild(buttonLabel);
           actions.appendChild(button);
         }
         row.append(head, copy);
         if (previewItems.length) row.appendChild(visual);
         row.append(pageLocation, actions);
         this.issueList.appendChild(row);
+        // Load only after attachment: disconnected guards must not skip every thumbnail.
+        Array.from(visual.children).forEach((shot, index) => {
+          const item = previewItems[index];
+          this.loadIssueThumbnail(item.assetId, shot, shot.querySelector("figcaption"), item.kind, previewItems);
+        });
       }
+      this.renderIssueDeletionControls();
+    }
+
+    applyIssueSearch(clear = false) {
+      if (clear) this.issueSearch.value = "";
+      this.issueSearchQuery = this.issueSearch.value.trim().toLowerCase();
+      if (this.issueSearchClear) this.issueSearchClear.hidden = !this.issueSearch.value;
+      this.renderIssueList();
+      if (clear) this.issueSearch.focus({ preventScroll:true });
+    }
+
+    updateIssueListEmpty(visibleCount) {
+      this.issueEmpty.classList.toggle("visible", visibleCount === 0);
+      const emptyTitle = this.issueEmpty.querySelector("strong");
+      const emptyHint = this.issueEmpty.querySelector(".empty-hint");
+      if (emptyTitle) emptyTitle.textContent = this.issues.length ? "没有匹配问题" : "还没有问题";
+      if (emptyHint) emptyHint.textContent = this.issues.length ? "调整搜索词或切换筛选。" : "选中元素后按 R 记录。";
     }
 
     pruneDeliverySelection() {
@@ -4065,60 +4771,50 @@
       this.deliverySelectionTouched = true;
       if (selected) this.deliverySelection.add(issueId);
       else this.deliverySelection.delete(issueId);
-      this.renderIssueList();
+      // Preserve the checkbox node, focus and list scroll position.
+      for (const checkbox of this.shadow.querySelectorAll(".issue-select")) {
+        checkbox.checked = this.deliverySelection.has(checkbox.dataset.deliveryIssueId);
+      }
       if (this.currentView === "deliver") this.renderDeliveryWorkspace();
     }
 
-    toggleDeliverySelectAll(selected) {
-      this.deliverySelectionTouched = true;
-      this.deliverySelection = selected ? new Set(this.issues.map((issue) => issue.id)) : new Set();
-      this.renderIssueList();
-      this.renderDeliveryWorkspace();
-    }
 
     renderDeliveryWorkspace() {
       const issues = this.selectedDeliveryIssues();
-      if (this.deliveryCount) this.deliveryCount.textContent = issues.length + " 个问题已选择";
-      if (this.deliverySelectAll) {
-        this.deliverySelectAll.checked = this.issues.length > 0 && issues.length === this.issues.length;
-        this.deliverySelectAll.indeterminate = issues.length > 0 && issues.length > 0 && issues.length < this.issues.length;
-        this.deliverySelectAll.disabled = this.issues.length === 0;
+      if (this.deliveryCount) {
+        this.deliveryCount.textContent = !this.issues.length ? "还没有可交付的问题"
+          : !issues.length ? "请返回问题清单勾选要交付的问题"
+          : issues.length === this.issues.length ? "导出本次全部 " + issues.length + " 个问题"
+          : "导出清单中勾选的 " + issues.length + " / " + this.issues.length + " 个问题";
       }
-      if (this.deliverySelectionList) {
-        this.deliverySelectionList.replaceChildren();
-        if (!issues.length) {
-          const empty = document.createElement("p");
-          empty.className = "delivery-empty";
-          empty.textContent = this.issues.length ? "请选择至少一个问题后交付。" : "还没有可交付的问题。";
-          this.deliverySelectionList.appendChild(empty);
-        }
-        for (const issue of issues.slice(0, 8)) {
-          const item = document.createElement("div");
-          item.className = "delivery-selection-item";
-          const title = document.createElement("strong");
-          title.textContent = issue.title || issue.description || "未命名问题";
-          const meta = document.createElement("span");
-          meta.textContent = issue.displayId;
-          item.append(title, meta);
-          this.deliverySelectionList.appendChild(item);
-        }
-        if (issues.length > 8) {
-          const more = document.createElement("p");
-          more.className = "delivery-empty";
-          more.textContent = "另有 " + (issues.length - 8) + " 个问题会一并交付";
-          this.deliverySelectionList.appendChild(more);
-        }
-      }
-      const available = issues.length > 0;
-      for (const button of this.shadow.querySelectorAll("[data-action='deliver-html'],[data-action='deliver-xlsx'],[data-action='deliver-zip'],[data-action='copy-agent'],[data-action='delete-delivery-selected']")) {
-        button.disabled = !available;
+      for (const button of this.shadow.querySelectorAll("[data-action='deliver-html'],[data-action='deliver-xlsx'],[data-action='deliver-zip'],[data-action='copy-agent']")) {
+        const format = button.dataset?.action?.replace("deliver-", "");
+        button.disabled = issues.length === 0 || Boolean(this.exportingFormats?.has(format));
       }
       if (this.deliveryError) this.deliveryError.textContent = "";
     }
 
     async loadIssueThumbnail(assetId, visual, index, kind, previewItems) {
+      if (!visual.isConnected) return;
+      visual.dataset.state = "loading";
+      const fail = () => {
+        if (!visual.isConnected) return;
+        visual.dataset.state = "error";
+        const retry = document.createElement("button");
+        retry.type = "button";
+        retry.className = "ghost-button thumbnail-retry";
+        retry.textContent = "重新加载";
+        retry.setAttribute("aria-label", "重新加载" + (kind === "context" ? "全景截图" : "局部截图"));
+        retry.addEventListener("click", (event) => {
+          event.preventDefault(); event.stopPropagation();
+          visual.replaceChildren(index);
+          this.loadIssueThumbnail(assetId, visual, index, kind, previewItems);
+        });
+        visual.replaceChildren(retry, index);
+      };
       const response = await this.sendMessage({ type: "UIDELTA_GET_ASSET", assetId, thumbnail: true });
-      if (!response || !response.ok || !response.dataUrl || !visual.isConnected) return;
+      if (!visual.isConnected) return;
+      if (!response?.ok || !response.dataUrl) { fail(); return; }
       const image = document.createElement("img");
       image.className = "issue-thumb " + (kind || "detail");
       image.alt = "";
@@ -4139,6 +4835,8 @@
       });
       image.loading = "lazy";
       image.decoding = "async";
+      image.addEventListener("error", fail, { once:true });
+      image.addEventListener("load", () => { if (visual.isConnected) visual.dataset.state = "ready"; }, { once:true });
       image.src = response.dataUrl;
       visual.insertBefore(image, index);
     }
@@ -4146,6 +4844,7 @@
     openImagePreview(dataUrl, caption, focusClose = true) {
       if (!this.preview || !this.previewImage) return;
       this.previewImage.src = dataUrl;
+      this.previewImage.alt = caption || "截图预览";
       const total = this.previewItems.length;
       this.previewCaption.textContent = (caption || "截图预览") + (total > 1 ? " · " + String(this.previewIndex + 1) + "/" + String(total) + " · ← → 切换" : "");
       const canSwitch = total > 1;
@@ -4155,7 +4854,111 @@
       if (focusClose) this.shadow.querySelector(".image-preview-close")?.focus();
     }
 
+    bindDeliveryExampleEvents() {
+      for (const button of this.shadow.querySelectorAll(".delivery-example")) {
+        button.addEventListener("pointerenter", (event) => {
+          if (event.pointerType !== "touch") this.queueDeliveryExampleHover(button, 180);
+        });
+        button.addEventListener("focus", () => this.queueDeliveryExampleHover(button, 0));
+        for (const eventName of ["pointerleave", "blur"]) button.addEventListener(eventName, (event) => {
+          if (!this.deliveryHover?.contains(event.relatedTarget)) this.queueHideDeliveryExampleHover();
+        });
+      }
+      this.deliveryHover?.addEventListener("pointerenter", () => {
+        if (this.deliveryHoverCloseTimer) window.clearTimeout(this.deliveryHoverCloseTimer);
+        this.deliveryHoverCloseTimer = null;
+      });
+      this.deliveryHover?.addEventListener("pointerleave", () => this.queueHideDeliveryExampleHover());
+      this.deliveryHoverImage?.addEventListener("load", () => this.positionDeliveryExampleHover());
+      this.shadow.querySelector(".delivery-scroll")?.addEventListener("scroll", () => this.hideDeliveryExampleHover());
+    }
+
+    queueDeliveryExampleHover(trigger, delay = 180) {
+      this.hideDeliveryExampleHover();
+      this.deliveryHoverOpenTimer = window.setTimeout(() => {
+        this.deliveryHoverOpenTimer = null;
+        this.showDeliveryExampleHover(trigger);
+      }, delay);
+    }
+
+    queueHideDeliveryExampleHover() {
+      if (this.deliveryHoverOpenTimer) window.clearTimeout(this.deliveryHoverOpenTimer);
+      this.deliveryHoverOpenTimer = null;
+      if (this.deliveryHoverCloseTimer) window.clearTimeout(this.deliveryHoverCloseTimer);
+      // Let the pointer cross the small gap into the image without flicker.
+      this.deliveryHoverCloseTimer = window.setTimeout(() => this.hideDeliveryExampleHover(), 160);
+    }
+
+    hideDeliveryExampleHover() {
+      if (this.deliveryHoverOpenTimer) window.clearTimeout(this.deliveryHoverOpenTimer);
+      if (this.deliveryHoverCloseTimer) window.clearTimeout(this.deliveryHoverCloseTimer);
+      this.deliveryHoverOpenTimer = this.deliveryHoverCloseTimer = null;
+      this.deliveryHoverState?.trigger.removeAttribute("aria-describedby");
+      this.deliveryHoverState = null;
+      if (this.deliveryHover) this.deliveryHover.hidden = true;
+      this.deliveryHoverImage?.removeAttribute("src");
+    }
+
+    async showDeliveryExampleHover(trigger) {
+      const format = trigger?.dataset.format;
+      const captions = { html:"HTML · 协作问题单示例", xlsx:"XLSX · 排期问题表示例", zip:"ZIP · 开发交付包示例" };
+      if (!Object.hasOwn(captions, format) || !trigger.isConnected || !this.deliveryHover || !this.enabled
+        || this.browseMode || this.currentView !== "deliver" || this.captureOverlayStyles || (this.preview && !this.preview.hidden)) return;
+      this.hideDeliveryExampleHover();
+      const state = { trigger, format };
+      this.deliveryHoverState = state;
+      trigger.setAttribute("aria-describedby", "uidelta-delivery-example");
+      this.deliveryHover.hidden = false;
+      this.deliveryHoverImage.hidden = true;
+      this.deliveryHoverImage.alt = captions[format];
+      this.deliveryHoverCaption.textContent = "正在加载示例…";
+      this.positionDeliveryExampleHover();
+      this.deliveryExampleCache ||= new Map();
+      let dataUrl = this.deliveryExampleCache.get(format);
+      if (!dataUrl) {
+        try {
+          const response = await this.sendMessage({ type:"UIDELTA_GET_DELIVERY_PREVIEW", format });
+          if (response?.ok && response.dataUrl) {
+            dataUrl = response.dataUrl;
+            this.deliveryExampleCache.set(format, dataUrl);
+          }
+        } catch (_) { /* Keep failures local to this non-modal preview. */ }
+      }
+      if (this.deliveryHoverState !== state) return;
+      if (!dataUrl) {
+        this.deliveryHoverCaption.textContent = "示例加载失败，移开后重试";
+        return;
+      }
+      this.deliveryHoverImage.src = dataUrl;
+      this.deliveryHoverImage.hidden = false;
+      this.deliveryHoverCaption.textContent = captions[format];
+      this.positionDeliveryExampleHover();
+    }
+
+    positionDeliveryExampleHover() {
+      const trigger = this.deliveryHoverState?.trigger;
+      if (!trigger || this.deliveryHover?.hidden) return;
+      if (!trigger.isConnected) { this.hideDeliveryExampleHover(); return; }
+      const anchor = trigger.getBoundingClientRect();
+      const box = this.deliveryHover.getBoundingClientRect();
+      const left = anchor.left >= box.width + 20 ? anchor.left - box.width - 8 : anchor.right + 8;
+      const top = anchor.top + anchor.height / 2 - box.height / 2;
+      this.deliveryHover.style.left = Math.max(12, Math.min(left, window.innerWidth - box.width - 12)) + "px";
+      this.deliveryHover.style.top = Math.max(12, Math.min(top, window.innerHeight - box.height - 12)) + "px";
+    }
+
+    async previewDeliveryExample(format, trigger) {
+      this.hideDeliveryExampleHover();
+      const captions = { html: "HTML · 协作问题单示例", xlsx: "XLSX · 排期问题表示例", zip: "ZIP · 开发交付包示例" };
+      if (!Object.hasOwn(captions, format)) return;
+      this.previewReturnFocus = trigger || this.shadow.activeElement;
+      this.previewItems = Object.entries(captions).map(([exampleFormat, caption]) => ({ exampleFormat, caption }));
+      this.previewIndex = this.previewItems.findIndex((item) => item.exampleFormat === format);
+      await this.loadPreviewItem(this.previewIndex, true);
+    }
+
     async previewAsset(assetId, caption, previewItems = null) {
+      this.previewReturnFocus = this.shadow.activeElement;
       const items = Array.isArray(previewItems) && previewItems.length
         ? previewItems.map((item) => ({ assetId: item.assetId, kind: item.kind, caption: item.caption }))
         : [{ assetId, kind: "detail", caption: caption || "截图预览" }];
@@ -4172,17 +4975,26 @@
       const requestEpoch = ++this.previewRequestEpoch;
       this.previewIndex = normalizedIndex;
       this.preview.hidden = false;
+      this.previewImage.removeAttribute("src");
+      this.previewImage.alt = item.caption || "截图预览";
       this.previewCaption.textContent = "正在加载" + (item.caption || "截图") + "…";
       const canSwitch = this.previewItems.length > 1;
       if (this.previewPreviousButton) this.previewPreviousButton.hidden = !canSwitch;
       if (this.previewNextButton) this.previewNextButton.hidden = !canSwitch;
-      const response = await this.sendMessage({ type: "UIDELTA_GET_ASSET", assetId: item.assetId, thumbnail: false });
+      if (focusClose) this.shadow.querySelector(".image-preview-close")?.focus();
+      let response;
+      try {
+        response = await this.sendMessage(item.exampleFormat
+          ? { type: "UIDELTA_GET_DELIVERY_PREVIEW", format: item.exampleFormat }
+          : { type: "UIDELTA_GET_ASSET", assetId: item.assetId, thumbnail: false });
+      } catch (_) { response = null; }
       if (requestEpoch !== this.previewRequestEpoch) return;
       if (!response?.ok || !response.dataUrl) {
-        this.showToast("无法加载高清截图");
+        this.previewCaption.textContent = item.exampleFormat ? "示例加载失败，请关闭后重试" : "截图加载失败，请关闭后重试";
         return;
       }
-      this.openImagePreview(response.dataUrl, item.caption, focusClose);
+      // Focus once when opening, not again after an asynchronous image load.
+      this.openImagePreview(response.dataUrl, item.caption, false);
     }
 
     switchPreview(direction) {
@@ -4192,15 +5004,20 @@
 
     closeImagePreview() {
       if (!this.preview) return;
+      const wasOpen = !this.preview.hidden;
       this.previewRequestEpoch += 1;
       this.preview.hidden = true;
       if (this.previewImage) this.previewImage.removeAttribute("src");
       this.previewItems = [];
       this.previewIndex = -1;
+      const trigger = this.previewReturnFocus;
+      this.previewReturnFocus = null;
+      if (wasOpen && this.enabled && !this.browseMode && trigger?.isConnected) trigger.focus({ preventScroll:true });
     }
 
     rowAction(action, issueId, label, text, extraClass) {
       const button = document.createElement("button");
+      button.type = "button";
       button.className = "row-action" + (extraClass ? " " + extraClass : "");
       button.dataset.action = action;
       button.dataset.issueId = issueId;
@@ -4216,19 +5033,94 @@
       return button;
     }
 
+    recordedIssueCount() {
+      // Evidence drafts remain available in the list, but only explicit saves
+      // increase the toolbar's recorded-issue counter. Older issues lack status.
+      return this.issues.filter((issue) => issue.reviewStatus !== "draft").length;
+    }
+
+    cancelIssueCountTransition() {
+      const transition = this.issueCountTransition;
+      this.issueCountTransition = null;
+      if (!transition) return;
+      transition.animations.forEach((animation) => animation.cancel());
+      transition.nodes.forEach((node) => node.remove());
+      this.modeIssueCount?.classList.remove("is-count-increasing");
+    }
+
+    animateIssueCount(previous, count) {
+      if (count <= previous) return;
+      this.cancelIssueCountTransition();
+      const button = this.modeIssueCount;
+      const value = button?.querySelector(".mode-count-value");
+      if (!value?.animate || !this.enabled || this.browseMode || this.captureOverlayStyles || this.modeToolbarDrag) return;
+      const status = this.shadow.querySelector(".mode-save-status");
+      if (status) status.textContent = `已新增 ${count - previous} 个问题，共 ${count} 个`;
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      const transition = { animations:[], nodes:[] };
+      this.issueCountTransition = transition;
+      button.classList.add("is-count-increasing");
+      const add = (className, text = "") => {
+        const node = document.createElement("span");
+        node.className = className;
+        node.textContent = text;
+        node.setAttribute("aria-hidden", "true");
+        button.appendChild(node);
+        transition.nodes.push(node);
+        return node;
+      };
+      const play = (node, frames, duration) => transition.animations.push(node.animate(frames, {
+        duration, easing:"cubic-bezier(0.22, 1, 0.36, 1)", fill:"both"
+      }));
+      if (reduced) {
+        play(value, [{ opacity:.4 }, { opacity:1 }], 140);
+        play(add("mode-count-increment", `+${count - previous}`), [{ opacity:1 }, { opacity:0 }], 240);
+      } else {
+        play(add("mode-count-previous", previous > 99 ? "99+" : String(previous)),
+          [{ opacity:1, transform:"translateY(0)" }, { opacity:0, transform:"translateY(-14px)" }], 220);
+        play(value, [{ opacity:0, transform:"translateY(14px) scale(.8)" }, { opacity:1, transform:"translateY(0) scale(1)" }], 280);
+        play(add("mode-count-halo"), [{ opacity:.9, transform:"scale(.9)" }, { opacity:0, transform:"scale(1.35)" }], 400);
+        play(add("mode-count-increment", `+${count - previous}`), [
+          { opacity:0, transform:"translateY(3px)", offset:0 },
+          { opacity:1, transform:"translateY(0)", offset:.2 },
+          { opacity:1, transform:"translateY(-3px)", offset:.65 },
+          { opacity:0, transform:"translateY(-8px)", offset:1 }
+        ], 480);
+      }
+      Promise.all(transition.animations.map((animation) => animation.finished.catch(() => {}))).then(() => {
+        if (this.issueCountTransition === transition) this.cancelIssueCountTransition();
+      });
+    }
+
     updateCounts() {
       const count = this.issues.length;
       this.dockCount.textContent = String(count);
       this.issueCount.textContent = String(count);
       if (this.modeIssueCount) {
-        this.modeIssueCount.textContent = count > 99 ? "99+" : String(count);
-        this.modeIssueCount.setAttribute("aria-label", "打开问题列表，已记录 " + count + " 个问题");
+        const recorded = this.recordedIssueCount();
+        const label = recorded > 99 ? "99+" : String(recorded);
+        let value = this.modeIssueCount.querySelector(".mode-count-value");
+        if (!value || value.textContent !== label) {
+          this.cancelIssueCountTransition();
+          value = document.createElement("span");
+          value.className = "mode-count-value";
+          value.setAttribute("aria-hidden", "true");
+          value.textContent = label;
+          this.modeIssueCount.replaceChildren(value);
+        }
+        const drafts = count - recorded;
+        this.modeIssueCount.setAttribute("aria-label", `打开问题列表，已记录 ${recorded} 个问题${drafts ? `，另有 ${drafts} 个草稿` : ""}`);
+        this.modeIssueCount.setAttribute("data-tooltip", drafts ? `问题列表 · ${drafts} 个草稿` : "问题列表");
       }
       const inline = this.shadow.querySelector(".inline-count");
       if (inline) inline.textContent = String(count);
     }
 
     renderPins() {
+      if (this.browseMode) {
+        this.pinsLayer.replaceChildren();
+        return;
+      }
       this.pinsLayer.replaceChildren();
       this.annotationTargets = new WeakMap();
       if (!this.enabled || !this.session || !this.isSessionActive() || this.interactionDown || this.currentView !== "inspect") {
@@ -4367,14 +5259,16 @@
         if (!this.enabled) return;
         const route = this.currentRoute();
         if (route !== this.lastRoute) {
+          this.persistTabContext();
           this.lastRoute = route;
           this.resetInspection();
-          this.renderPins();
+          if (!this.browseMode) this.renderPins();
           this.touchCurrentPage();
-          this.consumePendingJump();
+          if (!this.browseMode) this.consumePendingJump();
+          this.syncModeSurfaces();
           return;
         }
-        this.renderPins();
+        if (!this.browseMode) this.renderPins();
       }, 750);
     }
 
@@ -4401,16 +5295,21 @@
     }
 
     async exportDeliverable(format, button = null) {
-      if (!this.session) return;
+      if (!this.session || !["html", "xlsx", "zip"].includes(format)) return;
+      this.exportingFormats ||= new Set();
+      if (this.exportingFormats.has(format)) return;
       const issues = this.selectedDeliveryIssues();
       if (!issues.length) {
         this.showToast("请先选择至少一个问题");
         return;
       }
       const labels = { html: "HTML 问题单", xlsx: "XLSX 问题表", zip: "Agent 证据包" };
-      const target = button || this.shadow.querySelector("[data-action='deliver-" + format + "']");
-      const previous = target?.textContent;
-      if (target) {
+      const targets = Array.from(this.shadow.querySelectorAll("[data-action='deliver-" + format + "']"));
+      if (button && !targets.includes(button)) targets.push(button);
+      const labelsBefore = targets.map((target) => target.textContent);
+      this.exportingFormats.add(format);
+      if (this.deliveryError) this.deliveryError.textContent = "";
+      for (const target of targets) {
         target.disabled = true;
         target.textContent = "正在生成…";
       }
@@ -4422,16 +5321,19 @@
           issueIds: issues.map((issue) => issue.id)
         });
         if (!response?.ok) {
+          if (this.deliveryError) this.deliveryError.textContent = response?.error || "交付文件生成失败，请重试。";
           this.showToast(response?.error || "交付文件生成失败");
           return;
         }
         const location = response.downloadPath || "Chrome 默认下载文件夹";
         this.showToast((labels[format] || "交付文件") + "已下载：" + (response.filename || "UIDelta") + " · " + location);
       } finally {
-        if (target) {
-          target.disabled = false;
-          target.textContent = previous || "导出";
-        }
+        this.exportingFormats.delete(format);
+        const empty = this.selectedDeliveryIssues().length === 0;
+        targets.forEach((target, index) => {
+          target.disabled = empty;
+          target.textContent = labelsBefore[index] || "导出";
+        });
       }
     }
 
@@ -4475,38 +5377,6 @@
       this.showToast("已复制给 Codex 的交接摘要；需要图片时同时导出 ZIP");
     }
 
-    async deleteDeliverySelection() {
-      const issues = this.selectedDeliveryIssues();
-      if (!issues.length) {
-        this.showToast("请先选择至少一个问题");
-        return;
-      }
-      if (!window.confirm("删除所选的 " + issues.length + " 个问题？其截图证据也会一并删除。")) return;
-      const deletedIds = new Set();
-      const failed = [];
-      for (const issue of issues) {
-        const response = await this.sendMessage({ type: "UIDELTA_DELETE_ISSUE", issueId: issue.id });
-        if (!response?.ok) {
-          failed.push(issue.displayId);
-          continue;
-        }
-        const assets = issue.attachments || {};
-        await this.sendMessage({ type: "UIDELTA_DELETE_ASSETS", assetIds: [assets.context, assets.detail].filter(Boolean) });
-        deletedIds.add(issue.id);
-      }
-      if (!deletedIds.size) {
-        this.showToast(failed.length ? "未能删除所选问题" : "没有可删除的问题");
-        return;
-      }
-      this.deliverySelectionTouched = true;
-      this.deliverySelection = new Set([...this.deliverySelection].filter((id) => !deletedIds.has(id)));
-      this.issues = this.issues.filter((issue) => !deletedIds.has(issue.id));
-      this.updateCounts();
-      this.renderIssueList();
-      this.renderDeliveryWorkspace();
-      this.renderPins();
-      this.showToast("已删除 " + deletedIds.size + " 个问题" + (failed.length ? "；" + failed.length + " 个删除失败" : ""));
-    }
 
     async prepareImport(file) {
       this.importCandidate = null;
@@ -4704,22 +5574,11 @@
       if (option) {
         event.preventDefault();
         event.stopPropagation();
-        if (option.dataset.type && this.composer) {
-          this.composer.type = option.dataset.type;
-          this.updateComposerControls();
-        }
-        if (option.dataset.severity && this.composer) {
-          this.composer.severity = option.dataset.severity;
-          this.updateComposerControls();
-        }
-        if (option.dataset.priority && this.composer) {
-          this.composer.priority = option.dataset.priority;
-          this.updateComposerControls();
+        for (const key of ["type", "severity", "priority"]) {
+          if (option.dataset[key]) this.setComposerChoice(key, option.dataset[key]);
         }
         if (option.dataset.mode) {
-          this.restorePanel();
-          if (this.currentView !== "inspect") this.showView("inspect");
-          this.setInspectMode(option.dataset.mode);
+          this.resumeReview(option.dataset.mode);
         }
         if (option.dataset.filter) {
           this.issueFilter = option.dataset.filter;
@@ -4745,13 +5604,15 @@
       event.preventDefault();
       event.stopPropagation();
       const action = button.dataset.action;
+      if (button.disabled) return;
       if (action === "start-session") this.startSession();
       else if (action === "pause-session") this.pauseSession();
       else if (action === "resume-session") this.resumeSession();
-      else if (action === "close") this.setEnabled(false);
+      else if (action === "close" || action === "browse") this.minimizePanel();
       else if (action === "close-preview") this.closeImagePreview();
       else if (action === "preview-previous") this.switchPreview(-1);
       else if (action === "preview-next") this.switchPreview(1);
+      else if (action === "preview-delivery") this.previewDeliveryExample(button.dataset.format, button);
       else if (action === "minimize") this.minimizePanel();
       else if (action === "restore-panel") this.restorePanel();
       else if (action === "copy") this.copyCurrentInfo();
@@ -4775,7 +5636,7 @@
         this.resetPreview(true);
         if (element?.isConnected) this.updateInspector(element, "已选中", { compare: false });
       }
-      else if (action === "open-inbox") this.showView("inbox");
+      else if (action === "open-inbox") { this.restorePanel(); this.showView("inbox"); }
       else if (action === "open-deliver") this.showView("deliver");
       else if (action === "back-inbox") this.showView("inbox");
       else if (action === "back-inspect") this.showView(this.session?.status === "paused" ? "paused" : "inspect");
@@ -4787,7 +5648,6 @@
       else if (action === "deliver-xlsx") this.exportDeliverable("xlsx", button);
       else if (action === "deliver-zip") this.exportDeliverable("zip", button);
       else if (action === "copy-agent") this.copyAgentHandoff();
-      else if (action === "delete-delivery-selected") this.deleteDeliverySelection();
       else if (action === "confirm-import") this.confirmImport();
       else if (action === "end-session") this.endSession();
       else if (action === "edit-issue") {
@@ -4799,6 +5659,8 @@
         if (issue) this.copyIssue(issue);
       }
       else if (action === "delete-issue") this.deleteIssue(button.dataset.issueId);
+      else if (action === "clear-issues") this.clearIssues();
+      else if (action === "clear-issue-search") this.applyIssueSearch(true);
       else if (action === "jump-issue") {
         const issue = this.issues.find((item) => item.id === button.dataset.issueId);
         if (issue) this.jumpToIssue(issue);
@@ -4806,11 +5668,22 @@
         const issue = this.issues.find((item) => item.id === button.dataset.issueId);
         if (issue) this.openComposer(issue);
       }
+      if (button.closest(".mode-toolbar")) this.animateToolbarAction(button, event);
 
     }
 
     onShadowKeyDown(event) {
       event.stopPropagation();
+      if (this.preview && !this.preview.hidden && event.key === "Tab") {
+        const buttons = Array.from(this.preview.querySelectorAll("button")).filter((button) => !button.hidden && !button.disabled);
+        if (buttons.length) {
+          const index = buttons.indexOf(this.shadow.activeElement);
+          const next = event.shiftKey ? (index <= 0 ? buttons.length - 1 : index - 1) : (index + 1) % buttons.length;
+          event.preventDefault();
+          buttons[next].focus();
+        }
+        return;
+      }
       const current = event.target.closest?.(".segment");
       if (!current || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
       const buttons = Array.from(current.parentElement.querySelectorAll(".segment"));
@@ -4823,22 +5696,22 @@
       event.preventDefault();
       event.stopPropagation();
       const next = buttons[nextIndex];
-      if (next.dataset.type && this.composer) this.composer.type = next.dataset.type;
-      if (next.dataset.severity && this.composer) this.composer.severity = next.dataset.severity;
-      if (next.dataset.priority && this.composer) this.composer.priority = next.dataset.priority;
-      this.updateComposerControls();
-      next.focus();
+      for (const key of ["type", "severity", "priority"]) {
+        if (next.dataset[key] && this.setComposerChoice(key, next.dataset[key])) next.focus();
+      }
     }
 
     minimizePanel() {
+      this.cancelPendingIssueDeletions();
+      this.hideDeliveryExampleHover();
       if (!this.enabled) return;
-      if (this.currentView === "inspect" && this.inspectMode === "ui") return;
-      this.panel.style.display = "none";
-      this.dock.style.display = "flex";
-      window.requestAnimationFrame(() => this.dock.focus({ preventScroll: true }));
+      this.setBrowseMode(true);
+      this.shadow.activeElement?.blur?.();
     }
 
     restorePanel() {
+      if (!this.enabled) return;
+      this.setBrowseMode(false);
       this.dock.style.display = "none";
       if (this.currentView === "composer" && !this.composer) this.showView("inspect");
       if (this.currentView === "inspect" && this.inspectMode === "ui") {
@@ -4903,11 +5776,13 @@
       this.identityPath.textContent = "未选择元素";
       this.identityLocation.textContent = "页面位置 —";
       for (const name of ["size", "layout", "padding", "gap", "type", "text-color", "surface", "appearance"]) this.setMetric(name, "—");
+      this.renderLayerProperties?.(null);
       this.recordButton.disabled = true;
     }
 
     onPanelPointerDown(event) {
       if (event.button !== 0 || event.target.closest("button")) return;
+      this.cancelToolbarTransition();
       const rect = this.panel.getBoundingClientRect();
       this.panelDrag = { pointerId: event.pointerId, offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top };
       this.panel.classList.add("dragging");
@@ -4940,6 +5815,7 @@
 
     onUiEditorPointerDown(event) {
       if (event.button !== 0 || event.target.closest("button,input,select,textarea,label")) return;
+      this.cancelToolbarTransition();
       const rect = this.uiEditor?.getBoundingClientRect();
       if (!rect) return;
       this.uiEditorDrag = { pointerId: event.pointerId, offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top };
@@ -4977,6 +5853,7 @@
       // A mode button is always a click target. Only the slim handle / empty
       // toolbar edge starts a drag so pointer capture can never swallow clicks.
       if (event.target.closest("[data-mode],[data-action]")) return;
+      this.cancelIssueCountTransition();
       const rect = this.modeToolbar.getBoundingClientRect();
       this.modeToolbarDrag = {
         pointerId: event.pointerId,
@@ -4994,9 +5871,8 @@
       if (!mode || Date.now() < this.modeToolbarSuppressClickUntil) return;
       event.preventDefault();
       event.stopPropagation();
-      this.restorePanel();
-      if (this.currentView !== "inspect") this.showView("inspect");
-      this.setInspectMode(mode);
+      this.resumeReview(mode);
+      this.animateToolbarAction(event.currentTarget, event);
     }
 
     onModeToolbarPointerMove(event) {
@@ -5072,12 +5948,19 @@
 
     captureTargetState(captureToken) {
       const target = this.captureTargets.get(captureToken);
+      const composer = target?.composer;
+      if (composer && composer !== this.composer) return null;
+      const geometry = composer ? this.composerGeometry(composer) : null;
+      if (composer && (!geometry || (composer.issue.measurement && !geometry.measurement))) return null;
       const element = target?.element || target;
       const isRegion = Boolean(target?.region);
       if (!isRegion && (!element || !element.isConnected)) return null;
-      const rect = isRegion ? target.rect : element.getBoundingClientRect();
+      const rect = geometry?.rect || (isRegion ? target.rect : element.getBoundingClientRect());
       if (!this.isVisible(rect)) return null;
-      const captureRect = target?.rect && this.isVisible(target.rect) ? target.rect : rect;
+      // The old target.rect is the R-key viewport snapshot. Reusing it after
+      // scrolling crops unrelated pixels and masks inner-container movement
+      // from the worker's before/after capture stability check.
+      const captureRect = geometry?.measurement ? this.captureRectForIssue({ measurement:geometry.measurement }, rect) : rect;
       return {
         pageUrl: location.href,
         documentToken: String(performance.timeOrigin || 0),
@@ -5107,6 +5990,7 @@
     }
 
     setCaptureOverlayVisible(visible, preserveMeasurement = false) {
+      this.cancelCaptureSurfaceTransition();
       // visibility:hidden and display:none blur an active editor input.
       // Opacity removes the UI from the screenshot without replacing nodes or
       // changing focus, selection, layout or the user's unfinished input.
@@ -5117,10 +6001,12 @@
           entry.node.style.pointerEvents = entry.pointerEvents;
         }
         this.captureOverlayStyles = null;
+        if (this.browseMode) this.syncModeSurfaces?.();
         return;
       }
       this.setCaptureOverlayVisible(true);
       this.host?.setAttribute("data-uidelta-capturing", "");
+      this.cancelToolbarTransition();
       this.cancelRecordTransition();
       const nodes = preserveMeasurement
         ? [this.panel, this.dock, this.uiEditor, this.modeToolbar, this.recordPrompt, this.tooltip, this.toast, this.captureFeedback]
@@ -5130,6 +6016,45 @@
         node.style.opacity = "0";
         node.style.pointerEvents = "none";
       }
+    }
+
+    cancelCaptureSurfaceTransition() {
+      const transition = this.captureSurfaceTransition;
+      this.captureSurfaceTransition = null;
+      if (!transition) return;
+      for (const animation of transition.animations) animation.cancel();
+      transition.resolve(false);
+    }
+
+    async transitionCaptureOverlay(visible, preserveMeasurement = false) {
+      this.cancelCaptureSurfaceTransition();
+      const returning = Boolean(this.captureOverlayStyles?.length);
+      if (visible) this.setCaptureOverlayVisible(true);
+      if (this.currentView !== "composer" || this.browseMode || (visible && !returning)) {
+        if (!visible) this.setCaptureOverlayVisible(false, preserveMeasurement);
+        return true;
+      }
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      const transition = { animations:[] };
+      transition.finished = new Promise((resolve) => { transition.resolve = resolve; });
+      this.captureSurfaceTransition = transition;
+      for (const node of [this.panel, this.modeToolbar, this.dock].filter((node) => node?.animate)) {
+        const opacity = node.style.opacity || "1";
+        transition.animations.push(node.animate(visible ? [{ opacity:0 }, { opacity }] : [{ opacity }, { opacity:0 }],
+          { duration:reduced ? 60 : visible ? 160 : 80, easing:"ease-out" }));
+      }
+      Promise.all(transition.animations.map((animation) => animation.finished.catch(() => {}))).then(() => {
+        if (this.captureSurfaceTransition !== transition) return;
+        this.captureSurfaceTransition = null;
+        transition.resolve(true);
+      });
+      // Restoration is cosmetic and must not delay the capture-state ACK.
+      if (visible) return true;
+      const completed = await transition.finished;
+      if (!completed) return false;
+      // Only ACK after all overlay pixels are gone. Never capture a fade frame.
+      this.setCaptureOverlayVisible(false, preserveMeasurement);
+      return true;
     }
 
     elementAnchor(element) {
@@ -5528,7 +6453,7 @@
       window.clearTimeout(review.captureOverlayRestoreTimer);
       const preserveMeasurement = Boolean(message.preserveMeasurement);
       if (!message.visible) review.closeImagePreview();
-      review.setCaptureOverlayVisible(Boolean(message.visible), preserveMeasurement);
+      const visibilityReady = review.transitionCaptureOverlay(Boolean(message.visible), preserveMeasurement);
       if (!message.visible) {
         review.captureOverlayRestoreTimer = window.setTimeout(() => {
           review.setCaptureOverlayVisible(true);
@@ -5549,18 +6474,26 @@
       fallbackTimer = window.setTimeout(() => {
         respondOnce({ ok: false, error: "页面未完成重绘，请保持窗口可见后重试。" }, true);
       }, 1200);
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        const state = review.captureTargetState(message.captureToken);
-        if (!state) {
-          respondOnce({ ok: false, error: "目标元素已离开页面或不可见，请重新选择。" }, true);
+      visibilityReady.catch(() => false).then((ready) => {
+        if (responded) return;
+        if (!ready) {
+          respondOnce({ ok: false, error: "取证已中断，请重新截图。" }, true);
           return;
         }
-        respondOnce({ ok: true, ...state });
-      }));
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (responded) return;
+          const state = review.captureTargetState(message.captureToken);
+          if (!state) {
+            respondOnce({ ok: false, error: "目标元素已离开页面或不可见，请重新选择。" }, true);
+            return;
+          }
+          respondOnce({ ok: true, ...state });
+        }));
+      });
       return true;
     }
     if (message.type === "UI_LENS_SET_ENABLED") {
-      review.setEnabled(Boolean(message.enabled)).then(() => {
+      review.setEnabled(Boolean(message.enabled), message.context || {}).then(() => {
         sendResponse({ ok: true, enabled: review.enabled });
       });
       return true;

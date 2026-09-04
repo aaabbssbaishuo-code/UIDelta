@@ -12,6 +12,7 @@ for (const dir of ['extension','scripts','site','ui-lens-bookmarklet']) {
   }
 }
 for (const path of [...Object.values(manifest.icons), manifest.background.service_worker, ...manifest.content_scripts.flatMap(s => s.js)]) await access(join('extension',path));
+for (const format of ['html','xlsx','zip']) await access(`extension/previews/${format}-preview@2x.png`);
 for (const name of ['index.html','privacy.html','brand.html']) {
   const html = await readFile(join('site',name),'utf8');
   if (!html.includes('<title>') || !html.includes('name="viewport"')) throw new Error(`Missing metadata: ${name}`);

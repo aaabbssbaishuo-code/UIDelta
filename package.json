@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node scripts/serve.mjs",
     "check": "node scripts/check.mjs",
+    "check:installed": "node scripts/check-installed.mjs",
     "test": "node --test extension/*.test.mjs",
     "build": "node scripts/build.mjs"
   }

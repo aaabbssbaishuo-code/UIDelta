@@ -68,6 +68,7 @@ async function testMessageAndUiContracts() {
     "UIDELTA_PUT_REFERENCE_ASSET",
     "UIDELTA_GET_ASSET",
     "UIDELTA_DELETE_ISSUE",
+    "UIDELTA_DELETE_ISSUES",
     "UIDELTA_DELETE_ASSETS",
     "UIDELTA_EXPORT_SESSION",
     "UIDELTA_EXPORT_DELIVERABLE",
@@ -82,7 +83,7 @@ async function testMessageAndUiContracts() {
   assert.ok(content.includes("this.openComposer(undefined, measurement ? structuredClone(measurement) : null)"));
   assert.ok(content.indexOf("const isRecordShortcut") < content.indexOf("if (typing) {"), "记录快捷键必须先于网页输入框拦截");
   assert.ok(content.includes("this.measurementTarget = to"));
-  assert.ok(content.includes("const effectiveMeasurement = measurementOverride"));
+  assert.ok(content.includes("const effectiveMeasurement = regionOverride ? null : measurementOverride"));
   assert.ok(content.includes('this.currentView !== "inspect"'));
   assert.ok(content.includes('this.pinsLayer.style.display = isInspectView ? "" : "none"'));
   assert.ok(content.includes("position:fixed;z-index:10"));
@@ -172,7 +173,7 @@ async function testMessageAndUiContracts() {
   assert.ok(worker.includes("最多添加 10 张参考图片"));
   assert.ok(content.includes("animateRecordTransition"));
   assert.ok(content.includes("setCaptureOverlayVisible"));
-  assert.ok(content.includes("data-composer-choice='${key}'"), "记录属性使用紧凑、可键盘操作的 select");
+  assert.ok(content.includes("data-${key}='${value}' role='radio'"), "记录属性直接展开为可键盘操作的单选按钮");
   assert.ok(content.includes('["priority", "优先级", PRIORITIES]'));
   assert.ok(content.includes('["severity", "影响程度",'));
   assert.ok(content.includes("reference-image-input"));

@@ -12,7 +12,7 @@ Packaging includes only extension runtime files, icons, license and installation
 
 Use a synthetic page with the unpacked extension loaded:
 
-1. Toggle the extension, select an element and measure another element with Alt / Option.
+1. Toggle the extension, select an element and hover another element to measure spacing (no modifier required).
 2. Preview one style change, switch elements, undo it and confirm original styles return.
 3. Start a review; press R, type while screenshots settle, save and locate the resulting issue.
 4. Refresh the page and confirm records persist.
@@ -20,7 +20,17 @@ Use a synthetic page with the unpacked extension loaded:
 6. Test keyboard focus, Escape, Space pass-through and reduced-motion behavior.
 7. Try a blocked Chrome page and confirm the extension fails clearly.
 
-`extension/test-harness.html` is useful for visual inspection and UI logic, but uses mock capture/storage/export and does not prove these browser APIs work. The original manual checklist is retained in `extension/PHASE1_QA.md`; current installation paths and shortcuts are in the README.
+`extension/test-harness.html` is useful for visual inspection and UI logic, but uses mock capture/storage/export and does not prove these browser APIs work. The current audit and acceptance matrix are in [2026-09-04 audit](QA-AUDIT-2026-09-04.md); installation paths and shortcuts are in the README.
+
+## Source / loaded extension parity
+
+After reviewing and applying changes to a separately loaded development copy, run:
+
+```sh
+npm run check:installed -- /absolute/path/to/loaded-extension
+```
+
+This is read-only and compares runtime code, manifest, icons and preview images. It fails on missing or different files. A matching version number alone does not prove identical builds. Do not overwrite one copy before reviewing its differences.
 
 ## Website
 

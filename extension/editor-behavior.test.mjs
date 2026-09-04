@@ -128,6 +128,18 @@ function numericEditor(property, value) {
 }
 
 const cases = [
+  ["间距与四边内边距独立成组，位于布局之后且不影响后续标题", () => {
+    const markup = source.match(/<aside class='ui-editor'[\s\S]*?<\/aside>/)?.[0];
+    assert.ok(markup);
+    assert.match(markup, /<section class='ui-editor-section ui-editor-spacing-section' aria-label='间距与内边距'>/);
+    assert.ok(markup.indexOf("data-ui-section='layout'") < markup.indexOf("data-ui-section='spacing'"));
+    assert.ok(markup.indexOf("data-ui-section='spacing'") < markup.indexOf("data-ui-section='appearance'"));
+    const object = review().renderUiEditor.toString().match(/const sections = (\{[\s\S]*?\n      \});/)[1];
+    const groups = vm.runInNewContext(`(${object})`, { positionFields: [] });
+    assert.equal(JSON.stringify(groups.layout.map(([name]) => name)), JSON.stringify(["display", "flexDirection", "justifyContent", "alignItems"]));
+    assert.equal(JSON.stringify(groups.spacing.map(([name]) => name)), JSON.stringify(["gap", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft"]));
+    assert.doesNotMatch(review().localizeOverlay.toString(), /nth-of-type/);
+  }],
   ["下拉框显示真实当前值", () => {
     const editor = review({ previewState: { before: { flexDirection: "column", display: "grid" }, changes: {} } });
     const direction = editor.createUiEditorField("flexDirection", "方向", "select").querySelectorAll("select")[0];

@@ -30,9 +30,11 @@ const MESSAGE_TYPES = new Set([
   "UIDELTA_RESERVE_ISSUE",
   "UIDELTA_PUT_ISSUE",
   "UIDELTA_DELETE_ISSUE",
+  "UIDELTA_DELETE_ISSUES",
   "UIDELTA_CAPTURE_EVIDENCE",
   "UIDELTA_PUT_REFERENCE_ASSET",
   "UIDELTA_GET_ASSET",
+  "UIDELTA_GET_DELIVERY_PREVIEW",
   "UIDELTA_DELETE_ASSETS",
   "UIDELTA_EXPORT_SESSION",
   "UIDELTA_EXPORT_DELIVERABLE",
@@ -129,12 +131,16 @@ async function handleMessage(message, sender) {
       return putIssue(message.issue, sender);
     case "UIDELTA_DELETE_ISSUE":
       return deleteIssue(message.issueId, sender);
+    case "UIDELTA_DELETE_ISSUES":
+      return deleteIssues(message, sender);
     case "UIDELTA_CAPTURE_EVIDENCE":
       return captureEvidence(message, sender);
     case "UIDELTA_PUT_REFERENCE_ASSET":
       return putReferenceAsset(message, sender);
     case "UIDELTA_GET_ASSET":
       return getAsset(message.assetId, sender, Boolean(message.thumbnail));
+    case "UIDELTA_GET_DELIVERY_PREVIEW":
+      return getDeliveryPreview(message.format);
     case "UIDELTA_DELETE_ASSETS":
       return deleteAssets(message.assetIds, sender);
     case "UIDELTA_EXPORT_SESSION":
@@ -146,6 +152,14 @@ async function handleMessage(message, sender) {
     default:
       throw new Error("不支持的 UIDelta 消息。");
   }
+}
+
+async function getDeliveryPreview(format) {
+  // Static examples only: never accept a path or fetch a user-provided URL.
+  if (!["html", "xlsx", "zip"].includes(format)) return { ok: false, error: "未知示例类型" };
+  const response = await fetch(chrome.runtime.getURL("previews/" + format + "-preview@2x.png"));
+  if (!response.ok) return { ok: false, error: "示例图片加载失败" };
+  return { ok: true, dataUrl: await blobToDataUrl(await response.blob()) };
 }
 
 function resolveTabId(tabId, sender) {
@@ -180,7 +194,9 @@ async function setInspectorEnabled(tabId, enabled) {
       }
     }
 
-    await writeTabState(tabId, enabled, normalizeOrigin(tab.url), context);
+    // Content may have just flushed newer draft text while being configured.
+    // Preserve that latest same-origin draft instead of replaying the old copy.
+    await writeTabState(tabId, enabled, normalizeOrigin(tab.url), { browseMode: false });
     return { ok: true, enabled };
   } catch (error) {
     return toFailure(error, "无法在此页面启用 UIDelta。");
@@ -684,6 +700,16 @@ async function putIssue(input, sender) {
 async function deleteIssue(issueIdInput, sender) {
   const issueId = nonEmptyString(issueIdInput);
   if (!issueId) throw new Error("缺少 issueId。");
+  const result = await deleteIssues({ issueIds:[issueId] }, sender);
+  return { ...result, issueId, deleted:result.deletedIssueIds.includes(issueId) };
+}
+
+async function deleteIssues(message, sender) {
+  if (!Array.isArray(message.issueIds) || !message.issueIds.length || message.issueIds.length > 10000) throw new Error("请选择要删除的问题。");
+  const ids = Array.from(new Set(message.issueIds.map(nonEmptyString)));
+  if (ids.some((id) => !id)) throw new Error("问题编号无效。");
+  const requestedSessionId = nonEmptyString(message.sessionId);
+  if (ids.length > 1 && !requestedSessionId) throw new Error("批量删除缺少走查编号。");
   const db = await openDatabase();
   const transaction = db.transaction([STORE_ISSUES, STORE_SESSIONS, STORE_ASSETS], "readwrite");
   const done = transactionDone(transaction);
@@ -691,14 +717,16 @@ async function deleteIssue(issueIdInput, sender) {
     const issueStore = transaction.objectStore(STORE_ISSUES);
     const sessionStore = transaction.objectStore(STORE_SESSIONS);
     const assetStore = transaction.objectStore(STORE_ASSETS);
-    const existing = await requestResult(issueStore.get(issueId));
-    if (!existing) {
+    const existing = (await Promise.all(ids.map((id) => requestResult(issueStore.get(id))))).filter(Boolean);
+    if (!existing.length && !requestedSessionId) {
       await done;
-      return { ok: true, issueId, deleted: false, deletedAssetIds: [] };
+      return { ok:true, deletedIssueIds:[], deletedAssetIds:[] };
     }
-    const [storedSession, linkedAssets] = await Promise.all([
-      requestResult(sessionStore.get(existing.sessionId)),
-      requestResult(assetStore.index("issueId").getAll(issueId))
+    const sessionId = requestedSessionId || existing[0].sessionId;
+    if (existing.some((issue) => issue.sessionId !== sessionId)) throw new Error("只能删除本次走查的问题。");
+    const [storedSession, assetGroups] = await Promise.all([
+      requestResult(sessionStore.get(sessionId)),
+      Promise.all(existing.map((issue) => requestResult(assetStore.index("issueId").getAll(issue.id))))
     ]);
     if (!storedSession) throw new Error("Issue 对应的 Review Session 已不存在。");
     let session = storedSession;
@@ -708,11 +736,17 @@ async function deleteIssue(issueIdInput, sender) {
     if (session.status === "completed" || session.status === "ended") {
       throw new Error("已结束的 Review Session 不能删除 Issue。");
     }
-    const assetIds = linkedAssets.map((asset) => asset.id);
-    issueStore.delete(issueId);
+    const assetIds = assetGroups.flat().map((asset) => asset.id);
+    for (const issue of existing) issueStore.delete(issue.id);
     for (const assetId of assetIds) assetStore.delete(assetId);
+    // One transaction covers the exact snapshot, all screenshot kinds and the
+    // revision used by exports. Never reset numbering or delete other sessions.
+    if (existing.length) {
+      session = { ...session, revision:finiteNumber(session.revision, 0) + 1, updatedAt:new Date().toISOString() };
+      sessionStore.put(session);
+    }
     await done;
-    return { ok: true, issueId, deleted: true, deletedAssetIds: assetIds };
+    return { ok:true, session, deletedIssueIds:existing.map((issue) => issue.id), deletedAssetIds:assetIds };
   } catch (error) {
     try { transaction.abort(); } catch (_) {}
     await done.catch(() => {});
@@ -1870,44 +1904,334 @@ async function buildHtmlReport(session, issues, assets, exportedAt) {
     assetsByIssue.get(asset.issueId).push({ ...asset, dataUrl: await blobToDataUrl(await assetToBlob(asset)) });
   }
   const cards = issues.map((issue, index) => buildHtmlIssueCard(issue, assetsByIssue.get(issue.id) || [], index)).join("\n");
-  const title = htmlText(session.name || session.title || "UIDelta 走查问题单");
-  return `<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>
-:root{color-scheme:light;--ink:#17181d;--muted:#69707d;--line:#e5e7ec;--surface:#fff;--soft:#f6f7fa;--primary:#5268d8;--primary-soft:#edf0ff;--danger:#b83d53}*{box-sizing:border-box}body{margin:0;background:#f4f5f8;color:var(--ink);font:15px/1.55 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.shell{width:min(1180px,calc(100% - 32px));margin:0 auto}.top{padding:40px 0 24px}.eyebrow{margin:0;color:#6575d5;font-size:12px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}.title-row{display:flex;align-items:flex-end;justify-content:space-between;gap:20px}.title-row h1{margin:7px 0 0;font-size:31px;line-height:1.15;letter-spacing:-.035em}.meta{margin:10px 0 0;color:var(--muted);font-size:13px}.toolbar{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:18px;padding:12px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.92);box-shadow:0 10px 25px rgba(16,24,40,.06);backdrop-filter:blur(16px)}.toolbar input,.toolbar select{min-height:38px;border:1px solid #d9dde5;border-radius:10px;background:#fff;padding:0 11px;color:var(--ink);font:inherit}.toolbar input{min-width:230px;flex:1}.toolbar button{min-height:38px;border:0;border-radius:10px;background:var(--primary);padding:0 13px;color:#fff;cursor:pointer;font:700 13px/1 inherit}.summary{margin-left:auto;color:var(--muted);font-size:13px}.cards{display:grid;gap:14px;padding-bottom:42px}.issue{overflow:hidden;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 12px 30px rgba(16,24,40,.05)}.issue[hidden]{display:none}.issue-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:19px 20px 15px;border-bottom:1px solid var(--line)}.issue-id{display:inline-flex;align-items:center;min-height:25px;border-radius:7px;background:var(--primary-soft);padding:0 8px;color:#4156c6;font:800 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.issue h2{margin:7px 0 0;font-size:18px;line-height:1.35;letter-spacing:-.018em}.chips{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}.chip{display:inline-flex;min-height:25px;align-items:center;border:1px solid #e2e5ed;border-radius:999px;background:#fafbfc;padding:0 8px;color:#5a6271;font-size:11px;font-weight:700}.chip.major{border-color:#ffd4da;background:#fff4f5;color:#a83d4b}.body{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:20px;padding:20px}.body h3{margin:0 0 7px;font-size:12px;color:#596170;letter-spacing:.06em;text-transform:uppercase}.description{margin:0;white-space:pre-wrap}.spec{display:grid;gap:7px;margin-top:16px;padding:12px;border-radius:12px;background:var(--soft);font-size:13px}.spec strong{color:#343944}.evidence{display:grid;grid-template-columns:1fr 1fr;gap:9px}.evidence figure{margin:0;overflow:hidden;border:1px solid var(--line);border-radius:12px;background:#f6f7fa}.evidence img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;background:#e8ebf0;cursor:zoom-in}.evidence figcaption{padding:7px 8px;color:var(--muted);font-size:11px;font-weight:700}.issue-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 20px;border-top:1px solid var(--line);background:#fbfcfe}.page-link{overflow:hidden;color:#4d63d0;font-size:12px;font-weight:700;text-decoration:none;text-overflow:ellipsis;white-space:nowrap}.done{display:flex;align-items:center;gap:7px;white-space:nowrap;color:#4d5563;font-size:12px;font-weight:700}.empty-image{display:grid;min-height:120px;place-items:center;color:#8a93a1;font-size:12px}@media(max-width:720px){.shell{width:min(100% - 20px,1180px)}.top{padding-top:25px}.title-row{align-items:flex-start;flex-direction:column}.toolbar input{min-width:100%}.summary{margin-left:0}.body{grid-template-columns:1fr}.issue-head{flex-direction:column}.chips{justify-content:flex-start}}
-</style></head><body><main class="shell"><header class="top"><p class="eyebrow">UIDelta · 走查交付</p><div class="title-row"><div><h1>${title}</h1><p class="meta">${issues.length} 个问题 · 导出于 ${htmlText(exportedAt)} · 本报告可离线查看</p></div></div></header><section class="toolbar" aria-label="问题筛选"><input id="search" type="search" placeholder="搜索编号、问题、页面或元素"><select id="type"><option value="">全部类型</option><option value="ui">UI</option><option value="functional">功能</option><option value="content">文案</option></select><select id="severity"><option value="">全部影响程度</option><option value="crash">崩了</option><option value="blocked">瘫了</option><option value="degraded">差了</option><option value="cosmetic">小瑕</option></select><button id="export-status" type="button">导出处理状态 JSON</button><span class="summary" id="summary"></span></section><section class="cards" id="cards">${cards}</section></main><script>
-const key='uidelta-report-status:'+location.pathname;const saved=JSON.parse(localStorage.getItem(key)||'{}');const cards=[...document.querySelectorAll('.issue')];const search=document.querySelector('#search'),type=document.querySelector('#type'),severity=document.querySelector('#severity'),summary=document.querySelector('#summary');for(const input of document.querySelectorAll('[data-status]')){input.checked=Boolean(saved[input.dataset.status]);input.addEventListener('change',()=>{saved[input.dataset.status]=input.checked;localStorage.setItem(key,JSON.stringify(saved));update()})}function update(){const q=search.value.trim().toLowerCase();let shown=0;for(const card of cards){const ok=(!q||card.dataset.search.includes(q))&&(!type.value||card.dataset.type===type.value)&&(!severity.value||card.dataset.severity===severity.value);card.hidden=!ok;if(ok)shown++}summary.textContent='显示 '+shown+' / '+cards.length+' 个问题'}[search,type,severity].forEach(node=>node.addEventListener('input',update));document.querySelector('#export-status').addEventListener('click',()=>{const data={schemaVersion:1,source:'UIDelta HTML report',exportedAt:new Date().toISOString(),status:saved};const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='uidelta-report-status.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),0)});update();
-</script></body></html>`;
+  const title = htmlText(session.name || session.title || "走查报告");
+  const date = new Date(exportedAt);
+  const dateLabel = Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false
+  }).format(date);
+  return [
+    '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
+    '<title>' + title + ' · UIDelta</title><style>' + htmlReportStyles() + '</style></head>',
+    '<body data-report-key="' + htmlAttribute(session.id || exportedAt) + '"><main class="shell"><header class="top">',
+    '<div class="brand">' + htmlReportIcon("brand") + '<span>UIDelta <span class="brand-divider">/</span> 走查报告</span></div>',
+    '<div class="title-row"><div class="project"><h1>' + title + '</h1><p class="meta">',
+    dateLabel ? '<time datetime="' + htmlAttribute(exportedAt) + '">' + htmlText(dateLabel) + '</time><span>·</span>' : "",
+    '离线报告</p></div><button class="button export-status" id="export-status" type="button" title="下载处理状态 JSON">' + htmlReportIcon("download") + '导出状态</button></div>',
+    '<div class="progress-row"><span id="progress-label">已处理 0 / ' + issues.length + '</span><progress id="progress" value="0" max="' + Math.max(1, issues.length) + '" aria-label="问题处理进度"></progress></div></header>',
+    '<section class="toolbar" aria-label="问题筛选"><label class="search">' + htmlReportIcon("search") + '<input id="search" type="search" aria-label="搜索问题" placeholder="搜索问题、编号或页面" autocomplete="off"></label>',
+    '<select id="type" aria-label="问题类型"><option value="">全部类型</option><option value="ui">UI</option><option value="functional">功能</option><option value="content">文案</option></select>',
+    '<select id="severity" aria-label="影响程度"><option value="">全部影响</option><option value="crash">崩溃</option><option value="blocked">阻塞</option><option value="degraded">体验下降</option><option value="cosmetic">视觉瑕疵</option></select></section>',
+    '<div class="list-bar"><div class="status-filters" role="group" aria-label="处理状态"><button type="button" data-filter="" aria-pressed="true">全部 <span data-count="all">' + issues.length + '</span></button>',
+    '<button type="button" data-filter="pending" aria-pressed="false">待处理 <span data-count="pending">' + issues.length + '</span></button><button type="button" data-filter="done" aria-pressed="false">已处理 <span data-count="done">0</span></button>',
+    '</div><span id="summary" class="meta" role="status"></span></div><p id="storage-notice" class="notice" role="status" hidden></p>',
+    '<section class="cards" id="cards" aria-label="问题清单">' + cards + '</section>',
+    '<div class="empty-state" id="empty" hidden><h2>' + (issues.length ? "没有匹配的问题" : "暂无问题") + '</h2>' + (issues.length ? '<button type="button" class="button" id="reset-filters">重置筛选</button>' : "") + '</div>',
+    '<p class="report-note">状态保存在当前浏览器，可导出 JSON 留存。</p><noscript><p class="notice">启用 JavaScript 后可筛选、标记处理状态及放大截图。</p></noscript></main>',
+    '<dialog id="viewer" class="viewer" aria-labelledby="viewer-title" aria-describedby="viewer-help"><header class="viewer-head"><h2 id="viewer-title">证据预览</h2><button class="icon-button" type="button" id="viewer-close" aria-label="关闭预览" autofocus>' + htmlReportIcon("close") + '</button></header>',
+    '<div class="viewer-stage" id="viewer-stage"><div id="viewer-image"></div><div class="viewer-message"><p id="viewer-message" role="status"></p><button class="button" id="viewer-retry" type="button" hidden>重新加载</button></div></div>',
+    '<footer class="viewer-foot"><span id="viewer-help">← → 切换 · Esc 关闭</span><div class="viewer-navigation"><button class="icon-button" id="viewer-prev" type="button" aria-label="上一张">' + htmlReportIcon("left") + '</button><span id="viewer-counter" aria-live="polite"></span><button class="icon-button" id="viewer-next" type="button" aria-label="下一张">' + htmlReportIcon("right") + '</button></div></footer></dialog>',
+    '<script>(' + initHtmlReport.toString() + ')();</script></body></html>'
+  ].join("\n");
+}
+
+function htmlReportIcon(name) {
+  const paths = {
+    brand: '<path d="M5 4h14v12h-5l-5 4v-4H5z"/><path d="M8 8h8M8 12h5"/>',
+    search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>',
+    download: '<path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/>',
+    check: '<path d="m5 12 4 4L19 6"/>',
+    close: '<path d="m6 6 12 12M6 18 18 6"/>',
+    left: '<path d="m14 6-6 6 6 6"/>',
+    right: '<path d="m10 6 6 6-6 6"/>',
+    expand: '<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/>',
+    external: '<path d="M14 3h7v7m0-7L10 14M10 3H3v18h18v-7"/>'
+  };
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (paths[name] || paths.check) + '</svg>';
+}
+
+function htmlReportStyles() {
+  return `
+:root{color-scheme:light;--ink:#252a25;--muted:#666e63;--line:#dfe3da;--canvas:#f5f6f2;--surface:#fff;--soft:#f3f5ef;--accent:#bc4122;--brand:#f65f39;--accent-soft:#fff0e9;--success:#286341;--success-line:#a9cbb3;--success-soft:#f0f7f1;--danger:#a03737;--radius:16px;--ease:cubic-bezier(.22,1,.36,1)}
+*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:var(--canvas);color:var(--ink);font:.875rem/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}button,input,select{font:inherit}button,a,input,select,summary{-webkit-tap-highlight-color:transparent}button{cursor:pointer}button:disabled{cursor:default;opacity:.45}button svg,a svg,.search svg{width:18px;height:18px;flex:none}:focus-visible{outline:3px solid var(--accent);outline-offset:3px}button{transition:background-color 180ms,border-color 180ms,color 180ms}h1,h2,h3,p{margin:0}button,a{touch-action:manipulation}
+.shell{width:min(1120px,calc(100% - 48px));margin:auto}.top{padding:32px 0 24px}.brand{display:flex;gap:10px;align-items:center;font-weight:600;font-size:.75rem;color:var(--muted)}.brand>svg{width:30px;height:30px;padding:4px;border-radius:8px;background:var(--brand);color:#fff}.brand-divider{margin:0 8px;color:var(--line)}.title-row{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:20px}.project{min-width:0}.project h1{font-size:1.875rem;line-height:1.25;letter-spacing:-.035em;overflow-wrap:anywhere}.meta{font-size:.75rem;color:var(--muted)}.project .meta{display:flex;gap:8px;margin-top:8px}.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:6px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-weight:600;text-decoration:none}.button:hover{background:var(--soft);border-color:#bfc7b7}.export-status{flex:none}.progress-row{display:flex;align-items:center;gap:12px;margin-top:20px;font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums}.progress-row progress{appearance:none;width:180px;height:6px;border:0;border-radius:6px;overflow:hidden;background:var(--line);accent-color:var(--success)}progress::-webkit-progress-bar{background:var(--line)}progress::-webkit-progress-value{background:var(--success);border-radius:6px;transition:width 320ms var(--ease)}progress::-moz-progress-bar{background:var(--success)}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}.search{display:flex;align-items:center;gap:8px;flex:1 1 260px;min-width:0;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--canvas)}.search:focus-within{outline:2px solid var(--accent);outline-offset:1px}.search input{width:100%;min-width:0;height:38px;background:transparent;border:0;outline:none;color:var(--ink)}.search input::placeholder{color:var(--muted)}.toolbar select{min-width:0;max-width:100%;min-height:38px;padding:0 30px 0 10px;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:var(--surface)}.list-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:18px 0 14px}.status-filters{display:flex;gap:4px;flex-wrap:wrap}.status-filters button{display:flex;align-items:center;gap:6px;border:0;border-radius:8px;padding:8px 10px;background:transparent;color:var(--muted);font-weight:600;min-height:36px}.status-filters button:hover{background:var(--line)}.status-filters button[aria-pressed=true]{background:var(--ink);color:#fff}.status-filters span{font-size:.75rem;font-variant-numeric:tabular-nums;opacity:.85}
+.cards{display:grid;gap:16px}.issue{min-width:0;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);transition:background-color 320ms var(--ease),border-color 320ms var(--ease),box-shadow 320ms var(--ease);scroll-margin-top:20px}.issue-head{padding:20px 24px 0}.issue-topline{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px}.issue-id{font:.75rem/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;color:var(--accent);margin-right:4px}.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:5px;background:var(--soft);color:var(--muted);font-size:.75rem}.chip.major{color:var(--danger);background:#fff0ed}.state-label{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:.75rem;color:var(--muted);white-space:nowrap}.state-label:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}.issue h2{font-size:1.125rem;line-height:1.5;font-weight:600;overflow-wrap:anywhere}.issue-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,300px);gap:28px;padding:18px 24px 24px}.issue-copy{min-width:0}.description{white-space:pre-wrap;overflow-wrap:anywhere;margin-bottom:18px;font-size:.875rem;line-height:1.7}.facts{display:flex;flex-wrap:wrap;gap:12px 24px;margin:0 0 20px;padding:12px 0;border-block:1px solid var(--line)}.facts div{min-width:100px}.facts dt{font-size:.75rem;color:var(--muted);margin-bottom:2px}.facts dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.technical{margin-top:4px;border:1px solid var(--line);border-radius:10px}.technical>summary{cursor:pointer;padding:10px 12px;color:var(--muted);font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:center}.technical>summary:after{content:"+";font-size:1.125rem;font-weight:400}.technical[open]>summary:after{content:"−"}.technical summary::-webkit-details-marker{display:none}.technical[open]>summary{border-bottom:1px solid var(--line)}.technical-body{padding:4px 12px 12px}.technical-group{padding-top:12px}.technical h3,.changes h3{font-size:.75rem;font-weight:600;margin:0 0 8px;color:var(--muted)}.properties{margin:0;display:grid;gap:7px;font-size:.75rem}.properties>div{display:grid;grid-template-columns:72px minmax(0,1fr);gap:12px}.properties dt{color:var(--muted)}.properties dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.properties code{font-size:inherit;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.changes{margin-bottom:16px;padding-left:12px;border-left:2px solid var(--brand)}.changes p{overflow-wrap:anywhere;margin:5px 0}
+.evidence{display:flex;flex-direction:column;gap:12px;min-width:0;align-self:start}.evidence-button{position:relative;display:block;width:100%;padding:0;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:var(--soft);text-align:left;color:var(--muted);cursor:zoom-in}.evidence-button:hover{border-color:var(--accent);background:var(--accent-soft)}.evidence-button img{display:block;width:100%;height:140px;object-fit:contain;background:var(--soft)}.evidence-button[data-kind=detail] img{height:116px}.evidence-caption{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;font-size:.75rem;font-weight:600;border-top:1px solid var(--line)}.evidence-caption svg{width:14px;height:14px}.image-error{display:grid;height:100px;place-items:center;font-size:.75rem;color:var(--muted)}.no-evidence{padding:24px 12px;text-align:center;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:.75rem}
+.issue-foot{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;border-top:1px solid var(--line)}.page-source{min-width:0;max-width:70%;display:flex;gap:8px;align-items:center;color:var(--muted);font-size:.75rem}.page-source>span{flex:none}.page-link{display:inline-flex;gap:6px;align-items:center;min-width:0;color:inherit;text-decoration:none}.page-link span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.page-link svg{width:14px;height:14px}.page-link:hover{color:var(--accent)}.done-button{flex:none;min-height:44px;min-width:140px;padding:10px 18px;background:var(--accent-soft);border:1px solid #f3b9a7;border-radius:9px;color:var(--accent);font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}.done-button svg{width:18px;height:18px;opacity:.6}.done-button:hover{background:#ffe3d6;border-color:var(--brand)}.issue.is-done{background:var(--success-soft);border-color:var(--success-line);box-shadow:inset 4px 0 0 var(--success)}.issue.is-done .state-label,.issue.is-done .issue-id{color:var(--success)}.issue.is-done h2{color:#4d6555}.issue.is-done .chip{background:#e1ede3;color:#4d6555}.issue.is-done .done-button{color:#fff;background:var(--success);border-color:var(--success)}.issue.is-done .done-button svg{opacity:1}.issue.is-done .done-button:hover{background:#1d5032}
+.notice{padding:12px 16px;margin:0 0 16px;border:1px solid #ebc3ab;border-radius:8px;color:#824522;background:#fff5e9;font-size:.75rem}.empty-state{text-align:center;padding:64px 16px;border:1px dashed var(--line);border-radius:16px;background:var(--surface)}.empty-state h2{font-size:1rem;margin-bottom:14px}.report-note{color:var(--muted);font-size:.75rem;text-align:center;padding:24px 0 40px}
+.viewer{padding:0;width:min(1100px,calc(100vw - 32px));max-width:1100px;max-height:calc(100dvh - 32px);border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 24px 80px #18211938}.viewer::backdrop{background:rgba(31,39,32,.62)}.viewer[open]{animation:viewer-in 240ms var(--ease)}.viewer-head,.viewer-foot{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px}.viewer-head{border-bottom:1px solid var(--line)}.viewer-head h2{font-size:.875rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.icon-button{display:inline-grid;place-items:center;width:36px;height:36px;padding:8px;flex:none;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:var(--surface)}.icon-button:hover:not(:disabled){background:var(--soft)}.icon-button svg{width:18px;height:18px}.viewer-stage{position:relative;height:min(68dvh,760px);min-height:100px;background:var(--soft)}#viewer-image{height:100%;width:100%;padding:16px}#viewer-image img{display:block;width:100%;height:100%;object-fit:contain}.viewer-image-ready{animation:image-in 260ms var(--ease)}.viewer-message{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;pointer-events:none}.viewer-message button{pointer-events:auto}.viewer-foot{border-top:1px solid var(--line);font-size:.75rem;color:var(--muted)}.viewer-navigation{display:flex;gap:12px;align-items:center;flex:none}#viewer-counter{font-variant-numeric:tabular-nums;min-width:40px;text-align:center}@keyframes viewer-in{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:none}}@keyframes image-in{from{opacity:0}to{opacity:1}}
+@media(max-width:760px){.shell{width:calc(100% - 24px)}.top{padding-top:24px}.title-row{gap:12px;align-items:flex-start}.project h1{font-size:1.5rem}.issue-body{grid-template-columns:1fr;gap:20px}.evidence{width:100%}.evidence-button img{height:180px}.evidence-button[data-kind=detail] img{height:140px}.issue-head{padding:16px 16px 0}.issue-body{padding:16px}.issue-foot{padding:12px 16px}.toolbar select{flex:1}.search{flex-basis:100%}.state-label{margin-left:0}.list-bar .meta{width:100%}.viewer-stage{height:60dvh}}
+@media(max-width:420px){.title-row{flex-wrap:wrap}.issue-foot{flex-wrap:wrap}.page-source{max-width:100%;width:100%}.done-button{width:100%}.facts{gap:12px}.properties>div{grid-template-columns:60px minmax(0,1fr);gap:8px}.viewer{width:calc(100vw - 16px);max-height:calc(100dvh - 16px)}.viewer-head,.viewer-foot{padding:8px}.viewer-foot{flex-wrap:wrap}.viewer-stage{height:54dvh}.progress-row progress{flex:1;min-width:0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+@media print{body{background:#fff}.shell{width:100%}.toolbar,.list-bar,.export-status,.report-note,.done-button,dialog{display:none!important}.issue{break-inside:avoid;box-shadow:none}.issue-body{grid-template-columns:minmax(0,1fr) 240px}.technical-body{display:block}.top{padding-top:0}}
+`;
 }
 
 function buildHtmlIssueCard(issue, assets, index) {
-  const context = assets.find((asset) => asset.kind === "context");
-  const detail = assets.find((asset) => asset.kind === "detail");
+  const id = issue.id || String(index);
+  const displayId = issue.displayId || "UI-" + String(index + 1).padStart(3, "0");
+  const findEvidence = (kind) => issue.attachments?.[kind]
+    ? assets.find((asset) => asset.id === issue.attachments[kind] && asset.kind === kind)
+    : assets.find((asset) => asset.kind === kind);
+  const references = assets.filter((asset) => asset.kind === "reference" && (
+    !Array.isArray(issue.attachments?.references) || issue.attachments.references.includes(asset.id)
+  ));
   const evidence = [
-    htmlEvidenceFigure(context, "全景证据"),
-    htmlEvidenceFigure(detail, "局部证据")
-  ].join("");
-  const change = Array.isArray(issue.changeProposal?.changes) && issue.changeProposal.changes.length
-    ? issue.changeProposal.changes.map((item) => `${htmlText(deliveryPropertyLabel(item.property))}：${htmlText(item.before)} → ${htmlText(item.after)}`).join("<br>")
-    : "未提供本地试改建议";
-  const expected = Array.isArray(issue.diffs) && issue.diffs.length
-    ? issue.diffs.slice(0, 4).map((diff) => `${htmlText(deliveryPropertyLabel(diff.property))}：${htmlText(diff.expected)} → ${htmlText(diff.actual)}`).join("<br>")
-    : "无设计差异数据";
-  const developer = buildDeveloperFields(issue);
+    htmlEvidenceFigure(findEvidence("context"), "全景", displayId),
+    htmlEvidenceFigure(findEvidence("detail"), "细节", displayId),
+    ...references.map((asset, i) => htmlEvidenceFigure(asset, "参考 " + (i + 1), displayId))
+  ].filter(Boolean).join("");
+  const description = nonEmptyString(issue.description);
+  const rawTitle = nonEmptyString(issue.title).replace(/^【[^】]+】\s*/, "");
+  const title = rawTitle && rawTitle !== "待补充描述" ? rawTitle : firstLine(description) || "待补充描述";
+  // Remove only the duplicated first line, never the remaining description.
+  const body = description && description.split(/\r?\n/, 1)[0] === title
+    ? description.slice(description.indexOf("\n") < 0 ? description.length : description.indexOf("\n") + 1).trim()
+    : description;
   const actual = deliveryActualDetails(issue);
-  const source = [issue.displayId, issue.title, issue.description, issue.pageSnapshot?.route, deliveryElementLocator(issue), actual.summary].filter(Boolean).join(" ").toLowerCase();
+  const rect = actual.rect;
+  const facts = [
+    ["尺寸", rect.width !== null && rect.height !== null ? rect.width + " × " + rect.height + " px" : ""],
+    ["坐标", rect.x !== null && rect.y !== null ? "X " + rect.x + " · Y " + rect.y : ""],
+    ["测距", actual.measurement]
+  ].filter(([, value]) => value);
+  const snapshot = issue.webSnapshot || {};
+  const technical = [
+    htmlReportPropertyGroup("定位", [
+      ["选择器", deliverySelector(issue)], ["标签", issue.elementAnchor?.tag],
+      ["文本", issue.elementAnchor?.text], ["父级", issue.elementAnchor?.parentFingerprint],
+      ["测试标识", issue.elementAnchor?.testId], ["元素 ID", issue.elementAnchor?.id],
+      ["记录方式", issue.region || issue.captureMode === "region" ? "框选" : ""]
+    ]),
+    htmlReportPropertyGroup("布局", [
+      ["布局", snapshot.layout?.display], ["方向", snapshot.layout?.flexDirection],
+      ["主轴", snapshot.layout?.justifyContent], ["交叉轴", snapshot.layout?.alignItems],
+      ["内边距", snapshot.spacing?.padding ? formatBoxSnapshot(snapshot.spacing.padding) : ""],
+      ["外边距", snapshot.spacing?.margin ? formatBoxSnapshot(snapshot.spacing.margin) : ""],
+      ["间距", snapshot.spacing?.gap], ["圆角", snapshot.appearance?.borderRadius]
+    ]),
+    htmlReportPropertyGroup("文字与外观", [
+      ["字体", snapshot.typography?.fontFamily], ["字号", snapshot.typography?.fontSize],
+      ["行高", snapshot.typography?.lineHeight], ["字重", snapshot.typography?.fontWeight],
+      ["文字色", snapshot.typography?.color], ["背景色", snapshot.appearance?.backgroundColor]
+    ]),
+    htmlReportPropertyGroup("测距对象", [
+      ["起点", issue.measurement?.from?.preferredSelector || issue.measurement?.from?.name],
+      ["终点", issue.measurement?.to?.preferredSelector || issue.measurement?.to?.name]
+    ])
+  ].filter(Boolean).join("");
+  const change = htmlReportChanges("修改建议", issue.changeProposal?.changes, "before", "after");
+  const diffs = htmlReportChanges("设计对比 · 期望 → 实测", issue.diffs, "expected", "actual");
+  const severity = ({ minor: "cosmetic", major: "degraded" })[issue.severity] || issue.severity || "cosmetic";
+  const source = [displayId, title, description, issue.pageSnapshot?.title, issue.pageSnapshot?.route, deliveryElementLocator(issue), actual.summary].filter(Boolean).join(" ").toLowerCase();
   const page = nonEmptyString(issue.pageSnapshot?.url);
-  const developerMetrics = [
-    `宽 ${actual.rect.width ?? "-"}px`, `高 ${actual.rect.height ?? "-"}px`,
-    `X ${actual.rect.x ?? "-"}`, `Y ${actual.rect.y ?? "-"}`
-  ].join(" · ");
-  return `<article class="issue" data-type="${htmlAttribute(issue.type || "ui")}" data-severity="${htmlAttribute(issue.severity || "cosmetic")}" data-search="${htmlAttribute(source)}"><header class="issue-head"><div><span class="issue-id">${htmlText(issue.displayId || `UI-${String(index + 1).padStart(3, "0")}`)}</span><h2>${htmlText(issue.title || firstLine(issue.description) || "未命名问题")}</h2></div><div class="chips"><span class="chip">${htmlText(deliveryTypeLabel(issue.type))}</span><span class="chip">${htmlText(deliveryPriorityLabel(issue.priority))}</span><span class="chip ${htmlAttribute(["crash", "blocked", "degraded"].includes(issue.severity) ? "major" : "")}">${htmlText(deliverySeverityLabel(issue.severity))}</span></div></header><div class="body"><div><h3>问题说明</h3><p class="description">${htmlText(issue.description || "未填写描述")}</p><div class="spec"><div><strong>记录模式：</strong>${htmlText(developer.captureMode)}</div><div><strong>元素定位：</strong>${htmlText(deliveryElementLocator(issue))}</div><div><strong>实测 / 说明：</strong>${htmlText(actual.summary)}</div><div><strong>实测尺寸与坐标：</strong>${htmlText(developerMetrics)}</div><div><strong>布局 / 间距：</strong>${htmlText(actual.layout)} · ${htmlText(actual.spacing)}</div><div><strong>字体 / 颜色：</strong>${htmlText(actual.typography)} · 文字色 ${htmlText(actual.color)} · 背景色 ${htmlText(actual.background)} · 圆角 ${htmlText(actual.borderRadius)}</div><div><strong>拟议修改：</strong>${change}</div><div><strong>设计差异：</strong>${expected}</div></div></div><div class="evidence">${evidence}</div></div><footer class="issue-foot">${page ? `<a class="page-link" href="${htmlAttribute(page)}" target="_blank" rel="noreferrer">打开原页面 ↗</a>` : "<span class=\"page-link\">未记录页面链接</span>"}<label class="done"><input type="checkbox" data-status="${htmlAttribute(issue.id || String(index))}"> 已处理</label></footer></article>`;
+  let safePage = "", hostname = "";
+  try {
+    const parsed = new URL(page);
+    if (["http:", "https:"].includes(parsed.protocol)) { safePage = parsed.href; hostname = parsed.hostname; }
+  } catch { /* Invalid or missing page URLs remain plain text, never active links. */ }
+  const pageLabel = nonEmptyString(issue.pageSnapshot?.title) || nonEmptyString(issue.pageSnapshot?.route) || hostname;
+  const pageContent = pageLabel ? '<span>页面</span>' + (safePage
+    ? '<a class="page-link" href="' + htmlAttribute(safePage) + '" target="_blank" rel="noopener noreferrer" title="' + htmlAttribute(page) + '"><span>' + htmlText(pageLabel) + '</span>' + htmlReportIcon("external") + '</a>'
+    : '<span class="page-link"><span>' + htmlText(pageLabel) + '</span></span>') : "";
+  return [
+    '<article class="issue" data-id="' + htmlAttribute(id) + '" data-display-id="' + htmlAttribute(displayId) + '" data-type="' + htmlAttribute(issue.type || "ui") + '" data-severity="' + htmlAttribute(severity) + '" data-search="' + htmlAttribute(source) + '">',
+    '<header class="issue-head"><div class="issue-topline"><span class="issue-id">' + htmlText(displayId) + '</span><div class="chips"><span class="chip">' + htmlText(deliveryTypeLabel(issue.type)) + '</span><span class="chip">' + htmlText(deliveryPriorityLabel(issue.priority)) + '</span><span class="chip' + (["crash", "blocked", "degraded"].includes(severity) ? ' major' : '') + '">' + htmlText(deliverySeverityLabel(issue.severity)) + '</span></div><span class="state-label">待处理</span></div><h2>' + htmlText(title) + '</h2></header>',
+    '<div class="issue-body"><div class="issue-copy">',
+    body ? '<p class="description">' + htmlText(body) + '</p>' : "",
+    facts.length ? '<dl class="facts">' + facts.map(([label, value]) => '<div><dt>' + htmlText(label) + '</dt><dd>' + htmlText(value) + '</dd></div>').join("") + '</dl>' : "",
+    change, diffs,
+    technical ? '<details class="technical"><summary>技术详情</summary><div class="technical-body">' + technical + '</div></details>' : "",
+    '</div><div class="evidence">' + (evidence || '<div class="no-evidence">暂无截图</div>') + '</div></div>',
+    '<footer class="issue-foot"><div class="page-source">' + pageContent + '</div><button type="button" class="done-button" data-status="' + htmlAttribute(id) + '" data-initial-done="' + ["已处理", "已解决"].includes(issue.resolutionStatus) + '" aria-pressed="false" aria-label="标记 ' + htmlAttribute(displayId) + ' 已处理">' + htmlReportIcon("check") + '<span>标记已处理</span></button></footer></article>'
+  ].join("\n");
 }
 
-function htmlEvidenceFigure(asset, label) {
-  if (!asset?.dataUrl) return `<figure><div class="empty-image">缺少${htmlText(label)}</div><figcaption>${htmlText(label)}</figcaption></figure>`;
-  return `<figure><img src="${htmlAttribute(asset.dataUrl)}" alt="${htmlAttribute(label)}" onclick="this.requestFullscreen&&this.requestFullscreen()"><figcaption>${htmlText(label)}</figcaption></figure>`;
+function htmlReportPropertyGroup(title, rows) {
+  const values = rows.filter(([, value]) => value !== null && value !== undefined && String(value).trim() && value !== "未记录");
+  if (!values.length) return "";
+  return '<section class="technical-group"><h3>' + htmlText(title) + '</h3><dl class="properties">' + values.map(([label, value]) => '<div><dt>' + htmlText(label) + '</dt><dd>' + htmlText(value) + '</dd></div>').join("") + '</dl></section>';
 }
 
+function htmlReportChanges(title, items, before, after) {
+  if (!Array.isArray(items) || !items.length) return "";
+  return '<section class="changes"><h3>' + htmlText(title) + '</h3>' + items.map((item) => '<p>' + htmlText(deliveryPropertyLabel(item.property)) + '：' + htmlText(item[before] ?? "—") + ' → ' + htmlText(item[after] ?? "—") + '</p>').join("") + '</section>';
+}
+
+function htmlEvidenceFigure(asset, label, displayId) {
+  if (!asset?.dataUrl || !/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(asset.dataUrl)) return "";
+  return '<button class="evidence-button" type="button" data-evidence data-kind="' + htmlAttribute(asset.kind) + '" data-label="' + htmlAttribute(label) + '" aria-label="查看 ' + htmlAttribute(displayId) + ' ' + htmlAttribute(label) + '截图" aria-haspopup="dialog"><img src="' + htmlAttribute(asset.dataUrl) + '" alt="' + htmlAttribute(displayId) + ' ' + htmlAttribute(label) + '截图" loading="lazy" decoding="async"><span class="image-error" hidden>图片加载失败 · 点击重试</span><span class="evidence-caption">' + htmlText(label) + htmlReportIcon("expand") + '</span></button>';
+}
+
+// Serialized into the offline report. No worker globals, external dependencies,
+// or user strings may be interpolated into this function.
+function initHtmlReport() {
+  const $ = (selector) => document.querySelector(selector);
+  const cards = [...document.querySelectorAll(".issue")];
+  const statusButtons = [...document.querySelectorAll("[data-status]")];
+  const filterButtons = [...document.querySelectorAll("[data-filter]")];
+  const search = $("#search"), type = $("#type"), severity = $("#severity");
+  const notice = $("#storage-notice");
+  const key = "uidelta-report-status:v2:" + document.body.dataset.reportKey;
+  const legacyKey = "uidelta-report-status:" + location.pathname;
+  const saved = Object.create(null);
+  let statusFilter = "";
+  function warn(message) { notice.textContent = message; notice.hidden = false; }
+  try {
+    const stored = JSON.parse(localStorage.getItem(key) || localStorage.getItem(legacyKey) || "{}");
+    if (stored && typeof stored === "object" && !Array.isArray(stored)) {
+      for (const button of statusButtons) {
+        if (Object.prototype.hasOwnProperty.call(stored, button.dataset.status) && typeof stored[button.dataset.status] === "boolean") saved[button.dataset.status] = stored[button.dataset.status];
+      }
+    }
+  } catch { warn("无法读取上次状态。本次仍可标记，请导出状态留存。"); }
+  for (const button of statusButtons) {
+    if (!(button.dataset.status in saved)) saved[button.dataset.status] = button.dataset.initialDone === "true";
+  }
+  function paintStatus(button) {
+    const done = saved[button.dataset.status] === true;
+    const card = button.closest(".issue");
+    card.classList.toggle("is-done", done);
+    card.dataset.done = String(done);
+    card.querySelector(".state-label").textContent = done ? "已处理" : "待处理";
+    button.setAttribute("aria-pressed", String(done));
+    button.setAttribute("aria-label", (done ? "撤回 " : "标记 ") + card.dataset.displayId + (done ? " 的已处理状态" : " 已处理"));
+    button.title = done ? "点击恢复为待处理" : "标记已处理";
+    button.querySelector("span").textContent = done ? "已处理" : "标记已处理";
+  }
+  function update() {
+    const query = search.value.trim().toLowerCase();
+    let shown = 0, done = 0;
+    for (const card of cards) {
+      const complete = saved[card.dataset.id] === true;
+      if (complete) done++;
+      const visible = (!query || card.dataset.search.includes(query))
+        && (!type.value || card.dataset.type === type.value)
+        && (!severity.value || card.dataset.severity === severity.value)
+        && (!statusFilter || (statusFilter === "done" ? complete : !complete));
+      if (!visible && card.contains(document.activeElement)) filterButtons.find((button) => button.dataset.filter === statusFilter)?.focus();
+      card.hidden = !visible;
+      if (visible) shown++;
+    }
+    $("#summary").textContent = shown + " / " + cards.length + " 个问题";
+    $("#progress-label").textContent = "已处理 " + done + " / " + cards.length;
+    $("#progress").value = done;
+    for (const [name, count] of [["all", cards.length], ["pending", cards.length - done], ["done", done]]) $('[data-count="' + name + '"]').textContent = count;
+    $("#empty").hidden = shown > 0;
+    for (const button of filterButtons) button.setAttribute("aria-pressed", String(button.dataset.filter === statusFilter));
+  }
+  for (const button of statusButtons) {
+    paintStatus(button);
+    button.addEventListener("click", () => {
+      saved[button.dataset.status] = !saved[button.dataset.status];
+      paintStatus(button);
+      try {
+        // Exports may contain different subsets of the same session. Update
+        // this issue only, preserving statuses written by another report.
+        let previous = {};
+        try { previous = JSON.parse(localStorage.getItem(key) || "{}"); } catch { /* Replace corrupt state. */ }
+        const merged = Object.create(null);
+        if (previous && typeof previous === "object" && !Array.isArray(previous)) {
+          for (const [id, value] of Object.entries(previous)) if (typeof value === "boolean") merged[id] = value;
+        }
+        for (const [id, value] of Object.entries(saved)) if (!(id in merged)) merged[id] = value;
+        merged[button.dataset.status] = saved[button.dataset.status];
+        localStorage.setItem(key, JSON.stringify(merged));
+        notice.hidden = true;
+      } catch { warn("状态仅保留在本次打开中。请导出状态，避免关闭后丢失。"); }
+      update();
+    });
+  }
+  for (const field of [search, type, severity]) field.addEventListener("input", update);
+  for (const button of filterButtons) button.addEventListener("click", () => { statusFilter = button.dataset.filter; update(); });
+  $("#reset-filters")?.addEventListener("click", () => { search.value = type.value = severity.value = statusFilter = ""; update(); search.focus(); });
+  $("#export-status").addEventListener("click", () => {
+    let url, anchor;
+    try {
+      const data = { schemaVersion: 1, source: "UIDelta HTML report", exportedAt: new Date().toISOString(), status: saved };
+      url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+      anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "uidelta-report-status.json";
+      document.body.append(anchor);
+      anchor.click();
+    } catch { warn("状态导出失败，请重试。"); }
+    finally { anchor?.remove(); if (url) setTimeout(() => URL.revokeObjectURL(url), 1000); }
+  });
+
+  const viewer = $("#viewer"), imageHost = $("#viewer-image"), message = $("#viewer-message");
+  const retry = $("#viewer-retry"), prev = $("#viewer-prev"), next = $("#viewer-next");
+  let group = [], current = 0, origin = null, previousOverflow = "";
+  function showImage(index) {
+    current = (index + group.length) % group.length;
+    const item = group[current];
+    const card = item.closest(".issue");
+    const label = card.dataset.displayId + " · " + item.dataset.label;
+    $("#viewer-title").textContent = label;
+    $("#viewer-counter").textContent = current + 1 + " / " + group.length;
+    prev.disabled = next.disabled = group.length < 2;
+    retry.hidden = true;
+    message.textContent = "加载图片…";
+    const image = document.createElement("img");
+    image.alt = label + "截图";
+    image.hidden = true;
+    imageHost.replaceChildren(image);
+    image.addEventListener("load", () => {
+      if (imageHost.firstElementChild !== image) return;
+      image.hidden = false;
+      image.classList.add("viewer-image-ready");
+      message.textContent = "";
+    });
+    image.addEventListener("error", () => {
+      if (imageHost.firstElementChild !== image) return;
+      image.hidden = true;
+      message.textContent = "图片无法加载";
+      retry.hidden = false;
+    });
+    image.src = item.querySelector("img").src;
+  }
+  for (const button of document.querySelectorAll("[data-evidence]")) {
+    const image = button.querySelector("img");
+    const failed = () => { image.hidden = true; button.querySelector(".image-error").hidden = false; };
+    image.addEventListener("error", failed);
+    if (image.complete && !image.naturalWidth) failed();
+    button.addEventListener("click", () => {
+      group = [...button.closest(".issue").querySelectorAll("[data-evidence]")];
+      origin = button;
+      previousOverflow = document.body.style.overflow;
+      viewer.showModal();
+      document.body.style.overflow = "hidden";
+      showImage(group.indexOf(button));
+      $("#viewer-close").focus();
+    });
+  }
+  $("#viewer-close").addEventListener("click", () => viewer.close());
+  viewer.addEventListener("close", () => {
+    document.body.style.overflow = previousOverflow;
+    imageHost.replaceChildren();
+    origin?.focus({ preventScroll: true });
+  });
+  viewer.addEventListener("click", (event) => {
+    if (event.target !== viewer) return;
+    const rect = viewer.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) viewer.close();
+  });
+  viewer.addEventListener("keydown", (event) => {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.key === "Escape") { event.preventDefault(); viewer.close(); return; }
+    if (event.key === "Tab") {
+      const controls = [...viewer.querySelectorAll("button")].filter((button) => !button.hidden && !button.disabled);
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); showImage(current + (event.key === "ArrowLeft" ? -1 : 1)); }
+  });
+  prev.addEventListener("click", () => showImage(current - 1));
+  next.addEventListener("click", () => showImage(current + 1));
+  retry.addEventListener("click", () => showImage(current));
+  update();
+}
 function deliveryTypeLabel(value) {
   return ({ ui: "界面", functional: "功能", content: "文案" })[String(value || "").toLowerCase()] || String(value || "界面");
 }
@@ -1938,8 +2262,9 @@ function deliveryCaptureModeLabel(issue) {
 }
 
 function deliveryPixel(value) {
+  if (value === null || value === undefined || (typeof value === "string" && !value.trim())) return null;
   const number = Number(value);
-  return Number.isFinite(number) ? Math.round(number) : null;
+  return Number.isFinite(number) ? Math.round(number * 100) / 100 : null;
 }
 
 function deliveryRect(issue) {
@@ -2060,140 +2385,195 @@ function buildDeveloperFields(issue) {
 }
 
 async function buildXlsxReport(session, issues, assets, exportedAt) {
+  // Style 0 is deliberately Normal. Use explicit nonzero styles for every
+  // populated cell; some spreadsheet viewers special-case the default style.
   const headers = [
-    "编号", "类型", "走查问题", "元素定位", "实测 / 说明",
-    "实测宽(px)", "实测高(px)", "坐标 X(px)", "坐标 Y(px)", "测距(px)",
-    "布局", "间距", "字体", "文字颜色", "背景色", "圆角", "DOM 选择器",
-    "页面路径", "页面地址", "记录模式", "优先级", "影响程度",
-    "全景预览", "细节预览", "全景截图文件", "细节截图文件", "负责人", "处理状态", "修复版本"
+    "编号", "类型", "问题描述", "优先级", "影响程度", "负责人", "处理状态", "修复版本",
+    "元素定位", "实测 / 说明", "实测宽(px)", "实测高(px)", "坐标 X(px)", "坐标 Y(px)", "测距(px)",
+    "布局", "间距", "字体", "文字颜色", "背景色", "圆角", "DOM 选择器", "页面路径", "页面地址",
+    "记录模式", "全景预览", "细节预览", "全景截图文件", "细节截图文件"
   ];
+  const widths = [12, 10, 42, 15, 15, 14, 15, 16, 42, 44, 14, 14, 14, 14, 24, 16, 34, 40, 26, 26, 16, 48, 34, 44, 18, 16, 16, 32, 32];
+  const evidenceHeaders = ["编号", "问题描述", "细节截图", "全景截图", "分类 / 进展", "元素定位", "实测 / 说明"];
+  const evidenceWidths = [12, 34, 34, 34, 17, 28, 28];
+  const rows = [], evidenceRows = [], links = [];
+  const imageEntries = [], drawingAnchors = [], drawingRelations = [];
+  const lastRow = Math.max(5, issues.length + 4);
   const assetsByIssue = new Map();
   for (const asset of assets) {
     if (!assetsByIssue.has(asset.issueId)) assetsByIssue.set(asset.issueId, []);
     assetsByIssue.get(asset.issueId).push(asset);
   }
-  const rows = [];
-  const links = [];
-  const imageEntries = [];
-  const drawingAnchors = [];
-  const drawingRelations = [];
-  const assetMediaTargets = new Map();
   let imageIndex = 0;
   for (const [index, issue] of issues.entries()) {
-    const rowNumber = index + 5;
+    const row = index + 5;
+    const striped = index % 2;
+    const bodyStyle = 1 + striped;
     const issueAssets = assetsByIssue.get(issue.id) || [];
-    const context = issueAssets.find((asset) => asset.kind === "context");
-    const detail = issueAssets.find((asset) => asset.kind === "detail");
-    const developer = buildDeveloperFields(issue);
+    const findEvidence = (kind) => issue.attachments?.[kind]
+      ? issueAssets.find((asset) => asset.id === issue.attachments[kind] && asset.kind === kind)
+      : issueAssets.find((asset) => asset.kind === kind);
+    const context = findEvidence("context"), detail = findEvidence("detail");
+    const id = issue.displayId || `UI-${String(index + 1).padStart(3, "0")}`;
     const actual = deliveryActualDetails(issue);
-    const change = Array.isArray(issue.changeProposal?.changes) ? issue.changeProposal.changes.map((item) => `${deliveryPropertyLabel(item.property)}：${item.before} → ${item.after}`).join("；") : "";
-    const diff = Array.isArray(issue.diffs) ? issue.diffs.slice(0, 4).map((item) => `${deliveryPropertyLabel(item.property)}：期望 ${item.expected} → 实际 ${item.actual}`).join("；") : "";
+    const developer = buildDeveloperFields(issue);
+    const description = xlsxIssueDescription(issue);
+    const locator = deliveryElementLocator(issue).replace(/；/g, "\n");
+    const summary = actual.summary.replace(/；/g, "\n");
+    const status = ["待处理", "处理中", "待验收", "已解决", "暂不处理"].includes(issue.resolutionStatus) ? issue.resolutionStatus : "待处理";
     const values = [
-      issue.displayId || `UI-${String(index + 1).padStart(3, "0")}`,
-      deliveryTypeLabel(issue.type),
-      issue.title || firstLine(issue.description) || "未命名问题",
-      deliveryElementLocator(issue),
-      actual.summary,
-      actual.rect.width ?? "未记录", actual.rect.height ?? "未记录", actual.rect.x ?? "未记录", actual.rect.y ?? "未记录", actual.measurement || "未记录",
-      actual.layout, actual.spacing, actual.typography, actual.color, actual.background, actual.borderRadius,
-      developer.elementLocator.selector || "未记录",
-      issue.pageSnapshot?.route || "未记录", issue.pageSnapshot?.url || "未记录", developer.captureMode,
-      deliveryPriorityLabel(issue.priority), deliverySeverityLabel(issue.severity),
-      context ? "已嵌入" : "无", detail ? "已嵌入" : "无", context?.exportPath || "", detail?.exportPath || "", "", "", ""
+      id, deliveryTypeLabel(issue.type), description, deliveryPriorityLabel(issue.priority), deliverySeverityLabel(issue.severity),
+      typeof issue.assignee === "string" ? issue.assignee : "", status, typeof issue.fixVersion === "string" ? issue.fixVersion : "",
+      locator, summary, actual.rect.width, actual.rect.height, actual.rect.x, actual.rect.y, actual.measurement || "未记录",
+      actual.layout, actual.spacing.replace(/；/g, "\n"), actual.typography, actual.color, actual.background, actual.borderRadius,
+      developer.elementLocator.selector || "未记录", issue.pageSnapshot?.route || "未记录", issue.pageSnapshot?.url || "未记录",
+      developer.captureMode, context ? "查看全景 ↗" : "无截图", detail ? "查看细节 ↗" : "无截图", context?.exportPath || "", detail?.exportPath || ""
     ];
-    const cells = values.map((value, cellIndex) => xlsxInlineCell(xlsxCellRef(cellIndex + 1, rowNumber), value)).join("");
-    rows.push(`<row r="${rowNumber}" ht="108" customHeight="1">${cells}</row>`);
-    if (nonEmptyString(issue.pageSnapshot?.url)) links.push({ ref: xlsxCellRef(19, rowNumber), target: issue.pageSnapshot.url });
-    for (const [asset, label, column] of [[context, "全景", 22], [detail, "细节", 23]]) {
+    const cells = values.map((value, column) => {
+      const style = column === 0 ? 6 + striped : column >= 10 && column <= 13 ? 8 + striped
+        : [23, 25, 26].includes(column) ? 10 + striped : column >= 5 && column <= 7 ? 12 : bodyStyle;
+      return xlsxInlineCell(xlsxCellRef(column + 1, row), value, style);
+    }).join("");
+    // The list no longer needs screenshot-sized rows; screenshots live in the
+    // first sheet. Long technical text wraps without spilling into neighbours.
+    const rowHeight = xlsxRowHeight(values, widths, 48);
+    rows.push(`<row r="${row}" ht="${rowHeight}" customHeight="1">${cells}</row>`);
+    links.push({ ref:`A${row}`, location:`'证据预览'!A${row}` });
+    if (context) links.push({ ref:`Z${row}`, location:`'证据预览'!D${row}` });
+    if (detail) links.push({ ref:`AA${row}`, location:`'证据预览'!C${row}` });
+    if (/^https?:\/\//i.test(issue.pageSnapshot?.url || "")) links.push({ ref:`X${row}`, target:issue.pageSnapshot.url });
+
+    const classification = [values[1], values[3], values[4], status].join("\n");
+    const evidenceValues = [id, description, detail ? "" : "未记录细节截图", context ? "" : "未记录全景截图", classification, locator, summary];
+    const evidenceHeight = xlsxRowHeight(evidenceValues, evidenceWidths, 126);
+    // Lookup by stable issue id, not row number: sorting the follow-up sheet
+    // must not silently associate another problem with these screenshots.
+    const match = `MATCH($A${row},'问题清单'!$A$5:$A$${lastRow},0)`;
+    const lookup = (col) => `INDEX('问题清单'!$${col}$5:$${col}$${lastRow},${match})`;
+    const evidenceCells = evidenceValues.map((value, column) => {
+      const ref = xlsxCellRef(column + 1, row);
+      if (column === 1) return xlsxFormulaCell(ref, `IFERROR(${lookup("C")},"未找到对应问题")`, value, bodyStyle);
+      if (column === 4) return xlsxFormulaCell(ref, `IFERROR(${["B", "D", "E", "G"].map(lookup).join('&CHAR(10)&')},"未找到对应问题")`, value, bodyStyle);
+      return xlsxInlineCell(ref, value, column === 0 ? 6 + striped : bodyStyle);
+    }).join("");
+    evidenceRows.push(`<row r="${row}" ht="${evidenceHeight}" customHeight="1">${evidenceCells}</row>`);
+    for (const [asset, label, column] of [[detail, "细节", 2], [context, "全景", 3]]) {
       if (!asset) continue;
       imageIndex += 1;
       const relId = `rId${imageIndex}`;
       const mediaTarget = `../media/image${imageIndex}.png`;
-      imageEntries.push({ name: `xl/media/image${imageIndex}.png`, data: await assetToBlob(asset) });
-      assetMediaTargets.set(asset, mediaTarget);
+      imageEntries.push({ name:`xl/media/image${imageIndex}.png`, data:await assetToBlob(asset) });
       drawingRelations.push(`<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${mediaTarget}"/>`);
-      drawingAnchors.push(xlsxImageAnchor(relId, imageIndex, column, rowNumber - 1, label));
+      drawingAnchors.push(xlsxImageAnchor(relId, imageIndex, column, row - 1, `${id} ${label}`, {
+        sourceWidth:asset.width, sourceHeight:asset.height,
+        width:Math.floor(evidenceWidths[column] * 7 + 5 - 16), height:Math.min(152, evidenceHeight * 4 / 3 - 16)
+      }));
     }
   }
-  const lastColumn = xlsxCellRef(headers.length, 1).replace("1", "");
-  const title = "UIDelta UI 走查问题";
-  const titleCells = headers.map((_, index) => xlsxInlineCell(xlsxCellRef(index + 1, 1), index === 0 ? title : "", 2)).join("");
-  const metaValues = ["走查日期", String(exportedAt || "").slice(0, 10) || "未记录", "", "问题数", String(issues.length), "项目", session.name || session.title || "未命名项目"];
-  const metaCells = metaValues.map((value, index) => xlsxInlineCell(xlsxCellRef(index + 1, 2), value, 3)).join("");
-  const headerCells = headers.map((header, index) => xlsxInlineCell(xlsxCellRef(index + 1, 4), header, 1)).join("");
-  const widths = [14, 12, 42, 52, 68, 13, 13, 14, 14, 18, 14, 36, 36, 23, 23, 16, 52, 28, 42, 16, 14, 14, 32, 32, 30, 30, 16, 16, 16];
-  const columns = widths.map((width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`).join("");
-  const hyperlinkRelations = links.map((link, index) => `<Relationship Id="rId${imageIndex + index + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${xmlAttribute(link.target)}" TargetMode="External"/>`).join("");
-  const hyperlinks = links.length ? `<hyperlinks>${links.map((link, index) => `<hyperlink ref="${link.ref}" r:id="rId${imageIndex + index + 2}"/>`).join("")}</hyperlinks>` : "";
-  const drawing = drawingAnchors.length ? `<drawing r:id="rId1"/>` : "";
-  const sheetRelations = drawingAnchors.length
-    ? `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>${hyperlinkRelations}</Relationships>`
-    : `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${hyperlinkRelations}</Relationships>`;
-  const drawingXml = `<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${drawingAnchors.join("")}</xdr:wsDr>`;
-  const evidenceHeaders = ["编号", "类型", "走查问题", "元素定位", "实测 / 说明", "全景截图（可直接查看）", "细节截图（可直接查看）"];
-  const evidenceRows = [];
-  const evidenceDrawingAnchors = [];
-  const evidenceDrawingRelations = [];
-  let evidenceImageIndex = 0;
-  for (const [index, issue] of issues.entries()) {
-    const rowNumber = index + 2;
-    const issueAssets = assetsByIssue.get(issue.id) || [];
-    const context = issueAssets.find((asset) => asset.kind === "context");
-    const detail = issueAssets.find((asset) => asset.kind === "detail");
-    const actual = deliveryActualDetails(issue);
-    const values = [issue.displayId || `UI-${String(index + 1).padStart(3, "0")}`, deliveryTypeLabel(issue.type), issue.title || firstLine(issue.description) || "未命名问题", deliveryElementLocator(issue), actual.summary, context ? "已嵌入" : "无", detail ? "已嵌入" : "无"];
-    evidenceRows.push(`<row r="${rowNumber}" ht="170" customHeight="1">${values.map((value, cellIndex) => xlsxInlineCell(xlsxCellRef(cellIndex + 1, rowNumber), value)).join("")}</row>`);
-    for (const [asset, label, column] of [[context, "全景", 5], [detail, "细节", 6]]) {
-      const mediaTarget = assetMediaTargets.get(asset);
-      if (!mediaTarget) continue;
-      evidenceImageIndex += 1;
-      const relId = `rId${evidenceImageIndex}`;
-      evidenceDrawingRelations.push(`<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${mediaTarget}"/>`);
-      evidenceDrawingAnchors.push(xlsxImageAnchor(relId, evidenceImageIndex, column, rowNumber - 1, label, { width: 3048000, height: 1714500 }));
+  if (!issues.length) {
+    rows.push(`<row r="5" ht="40" customHeight="1">${headers.map((_, col) => xlsxInlineCell(xlsxCellRef(col + 1, 5), col === 2 ? "本次没有可导出的问题" : "", 1)).join("")}</row>`);
+    evidenceRows.push(`<row r="5" ht="40" customHeight="1">${evidenceHeaders.map((_, col) => xlsxInlineCell(xlsxCellRef(col + 1, 5), col === 1 ? "本次没有可导出的问题" : "", 1)).join("")}</row>`);
+  }
+  const meta = `${session.name || session.title || "未命名项目"} · ${String(exportedAt || "").slice(0, 10)} · `;
+  const countFormula = `${xlsxFormulaString(meta)}&COUNTA('问题清单'!$A$5:$A$${lastRow})&" 个问题"`;
+  const countText = meta + issues.length + " 个问题";
+  const listRelations = [], linkXml = [];
+  for (const link of links) {
+    if (link.location) linkXml.push(`<hyperlink ref="${link.ref}" location="${xmlAttribute(link.location)}"/>`);
+    else {
+      const relId = `rId${listRelations.length + 1}`;
+      listRelations.push(`<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${xmlAttribute(link.target)}" TargetMode="External"/>`);
+      linkXml.push(`<hyperlink ref="${link.ref}" r:id="${relId}"/>`);
     }
   }
-  const evidenceHeaderCells = evidenceHeaders.map((header, index) => xlsxInlineCell(xlsxCellRef(index + 1, 1), header, 1)).join("");
-  const evidenceWidths = [14, 12, 40, 52, 60, 46, 46];
-  const evidenceColumns = evidenceWidths.map((width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`).join("");
-  const evidenceDrawing = evidenceDrawingAnchors.length ? `<drawing r:id="rId1"/>` : "";
-  const evidenceSheetRelations = evidenceDrawingAnchors.length
-    ? `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing2.xml"/></Relationships>`
-    : `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`;
-  const evidenceDrawingXml = `<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${evidenceDrawingAnchors.join("")}</xdr:wsDr>`;
-  const evidenceAutoFilter = issues.length ? `<autoFilter ref="A1:${xlsxCellRef(evidenceHeaders.length, issues.length + 1)}"/>` : "";
-  const evidenceSheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols>${evidenceColumns}</cols><sheetData><row r="1" ht="32" customHeight="1">${evidenceHeaderCells}</row>${evidenceRows.join("")}</sheetData>${evidenceAutoFilter}${evidenceDrawing}</worksheet>`;
-  const workbookTitle = "问题清单";
-  const autoFilter = issues.length ? `<autoFilter ref="A4:${xlsxCellRef(headers.length, issues.length + 4)}"/>` : "";
-  const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols>${columns}</cols><sheetData><row r="1" ht="28" customHeight="1">${titleCells}</row><row r="2" ht="24" customHeight="1">${metaCells}</row><row r="3" ht="8" customHeight="1"/><row r="4" ht="32" customHeight="1">${headerCells}</row>${rows.join("")}</sheetData><mergeCells count="1"><mergeCell ref="A1:${lastColumn}1"/></mergeCells>${autoFilter}${hyperlinks}${drawing}</worksheet>`;
-  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${drawingAnchors.length ? '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' : ""}${evidenceDrawingAnchors.length ? '<Override PartName="/xl/drawings/drawing2.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' : ""}</Types>`;
-  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="4"><font><sz val="10"/><color rgb="FF172033"/><name val="Microsoft YaHei"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Microsoft YaHei"/></font><font><b/><sz val="15"/><color rgb="FFFFFFFF"/><name val="Microsoft YaHei"/></font><font><b/><sz val="10"/><color rgb="FF17395F"/><name val="Microsoft YaHei"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF17395F"/><bgColor rgb="FF17395F"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0B4E8A"/><bgColor rgb="FF0B4E8A"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEAF1F8"/><bgColor rgb="FFEAF1F8"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFD9E0F1"/></left><right style="thin"><color rgb="FFD9E0F1"/></right><top style="thin"><color rgb="FFD9E0F1"/></top><bottom style="thin"><color rgb="FFD9E0F1"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf></cellXfs></styleSheet>`;
+  const validations = issues.length ? `<dataValidations count="3">${[
+    ["D", ["立刻处理", "尽快处理", "待排期", "暂不处理"]],
+    ["E", ["崩溃", "阻塞", "体验较差", "轻微瑕疵"]],
+    ["G", ["待处理", "处理中", "待验收", "已解决", "暂不处理"]]
+  ].map(([col, choices]) => `<dataValidation type="list" allowBlank="1" showErrorMessage="1" errorStyle="stop" errorTitle="请选择列表中的值" error="请使用下拉列表，保持交付口径一致。" sqref="${col}5:${col}${lastRow}"><formula1>${xmlText(xlsxFormulaString(choices.join(",")))}</formula1></dataValidation>`).join("")}</dataValidations>` : "";
+  const conditional = issues.length ? [
+    ["D", "立刻处理", 0], ["D", "尽快处理", 1], ["E", "崩溃", 0], ["E", "阻塞", 0], ["G", "已解决", 2], ["G", "处理中", 1]
+  ].map(([col, value, dxf], index) => `<conditionalFormatting sqref="${col}5:${col}${lastRow}"><cfRule type="cellIs" dxfId="${dxf}" priority="${index + 1}" operator="equal"><formula>${xmlText(xlsxFormulaString(value))}</formula></cfRule></conditionalFormatting>`).join("") : "";
+  const common = { lastRow, countFormula, countText };
+  const sheetXml = xlsxWorksheetXml({ ...common, title:"问题清单 · 排期与跟进", headers, widths, rows,
+    hint:"橙底列可填写 · 在此筛选、排序和更新进展 · 点击编号查看证据", selected:false,
+    afterData:(issues.length ? `<autoFilter ref="A4:AC${lastRow}"/>` : ""),
+    afterMerge:conditional + validations + (linkXml.length ? `<hyperlinks>${linkXml.join("")}</hyperlinks>` : "") });
+  const evidenceSheetXml = xlsxWorksheetXml({ ...common, title:"证据预览 · 先看问题，再看截图", headers:evidenceHeaders, widths:evidenceWidths, rows:evidenceRows,
+    hint:"截图与编号一一对应 · 在「问题清单」筛选和维护进展", selected:true,
+    drawing:drawingAnchors.length ? '<drawing r:id="rId1"/>' : "" });
+  const xmlHeader = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  const rels = (body) => `${xmlHeader}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${body}</Relationships>`;
+  const contentTypes = `${xmlHeader}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${drawingAnchors.length ? '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' : ""}</Types>`;
   const entries = [
-    { name: "[Content_Types].xml", data: contentTypes },
-    { name: "_rels/.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
-    { name: "xl/workbook.xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets><sheet name="${workbookTitle}" sheetId="1" r:id="rId1"/><sheet name="证据预览" sheetId="2" r:id="rId2"/></sheets></workbook>` },
-    { name: "xl/_rels/workbook.xml.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
-    { name: "xl/styles.xml", data: styles },
-    { name: "xl/worksheets/sheet1.xml", data: sheetXml },
-    { name: "xl/worksheets/_rels/sheet1.xml.rels", data: sheetRelations },
-    { name: "xl/worksheets/sheet2.xml", data: evidenceSheetXml },
-    { name: "xl/worksheets/_rels/sheet2.xml.rels", data: evidenceSheetRelations }
+    { name:"[Content_Types].xml", data:contentTypes },
+    { name:"_rels/.rels", data:rels('<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>') },
+    { name:"xl/workbook.xml", data:`${xmlHeader}<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0" firstSheet="0"/></bookViews><sheets><sheet name="证据预览" sheetId="1" r:id="rId1"/><sheet name="问题清单" sheetId="2" r:id="rId2"/></sheets><definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">'证据预览'!$1:$4</definedName><definedName name="_xlnm.Print_Titles" localSheetId="1">'问题清单'!$1:$4</definedName></definedNames><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>` },
+    { name:"xl/_rels/workbook.xml.rels", data:rels('<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>') },
+    { name:"xl/styles.xml", data:xlsxReportStyles() },
+    { name:"xl/worksheets/sheet1.xml", data:evidenceSheetXml },
+    { name:"xl/worksheets/sheet2.xml", data:sheetXml },
+    { name:"xl/worksheets/_rels/sheet2.xml.rels", data:rels(listRelations.join("")) }
   ];
-  if (drawingAnchors.length) {
-    entries.push({ name: "xl/drawings/drawing1.xml", data: drawingXml });
-    entries.push({ name: "xl/drawings/_rels/drawing1.xml.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${drawingRelations.join("")}</Relationships>` });
-  }
-  if (evidenceDrawingAnchors.length) {
-    entries.push({ name: "xl/drawings/drawing2.xml", data: evidenceDrawingXml });
-    entries.push({ name: "xl/drawings/_rels/drawing2.xml.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${evidenceDrawingRelations.join("")}</Relationships>` });
-  }
-  entries.push(...imageEntries);
-  return entries;
+  if (drawingAnchors.length) entries.push(
+    { name:"xl/worksheets/_rels/sheet1.xml.rels", data:rels('<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>') },
+    { name:"xl/drawings/drawing1.xml", data:`${xmlHeader}<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${drawingAnchors.join("")}</xdr:wsDr>` },
+    { name:"xl/drawings/_rels/drawing1.xml.rels", data:rels(drawingRelations.join("")) }
+  );
+  return [...entries, ...imageEntries];
+}
+
+function xlsxIssueDescription(issue) {
+  const title = String(issue.title || "").trim();
+  const description = String(issue.description || "").trim();
+  if (!description) return title || "待补充描述";
+  if (!title || title === description || title === firstLine(description) || title === "待补充描述" || title.replace(/^【[^】]+】\s*/, "") === firstLine(description)) return description;
+  return title + "\n" + description;
+}
+
+function xlsxRowHeight(values, widths, minimum) {
+  const lines = values.map((value, index) => String(value ?? "").split(/\r?\n/).reduce((count, line) => {
+    const units = Array.from(line).reduce((sum, char) => sum + (char.charCodeAt(0) > 255 ? 2 : 1), 0);
+    return count + Math.max(1, Math.ceil(units / Math.max(6, widths[index] - 3)));
+  }, 0));
+  return Math.min(409, Math.max(minimum, Math.max(...lines) * 15 + 12));
+}
+
+function xlsxWorksheetXml({ title, headers, widths, rows, lastRow, countFormula, countText, hint, selected, afterData = "", afterMerge = "", drawing = "" }) {
+  const lastColumn = xlsxCellRef(headers.length, 1).replace(/1$/, "");
+  const columns = widths.map((width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`).join("");
+  const heading = headers.map((value, index) => xlsxInlineCell(xlsxCellRef(index + 1, 4), value, 3)).join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><tabColor rgb="${selected ? 'FFF2603D' : 'FF64745C'}"/><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:${lastColumn}${lastRow}"/><sheetViews><sheetView workbookViewId="0" showGridLines="0" tabSelected="${selected ? 1 : 0}" zoomScale="90"><pane xSplit="${selected ? 1 : 3}" ySplit="4" topLeftCell="${selected ? 'B' : 'D'}5" activePane="bottomRight" state="frozen"/><selection pane="bottomRight" activeCell="${selected ? 'B' : 'D'}5" sqref="${selected ? 'B' : 'D'}5"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="20"/><cols>${columns}</cols><sheetData><row r="1" ht="32" customHeight="1">${xlsxInlineCell('A1', title, 4)}</row><row r="2" ht="26" customHeight="1">${xlsxFormulaCell('A2', countFormula, countText, 5)}</row><row r="3" ht="24" customHeight="1">${xlsxInlineCell('A3', hint, 5)}</row><row r="4" ht="28" customHeight="1">${heading}</row>${rows.join("")}</sheetData>${afterData}<mergeCells count="3"><mergeCell ref="A1:${lastColumn}1"/><mergeCell ref="A2:${lastColumn}2"/><mergeCell ref="A3:${lastColumn}3"/></mergeCells>${afterMerge}<printOptions horizontalCentered="1"/><pageMargins left="0.25" right="0.25" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>${drawing}</worksheet>`;
+}
+
+function xlsxReportStyles() {
+  const font = (size, color, extra = "") => `<font>${extra}<sz val="${size}"/><color rgb="FF${color}"/><name val="Microsoft YaHei"/><family val="2"/></font>`;
+  const fonts = [font(11, '28322B'), font(11, 'FFFFFF', '<b/>'), font(16, 'FFFFFF', '<b/>'), font(10, '63705F'), font(11, '984526', '<b/>'), font(11, '315E91', '<u/>')];
+  const fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>', ...['FFFFFF', 'F3F6F1', '303A32', '253229', 'EAF0E5', 'FFF3E8'].map((color) => `<fill><patternFill patternType="solid"><fgColor rgb="FF${color}"/><bgColor indexed="64"/></patternFill></fill>`)];
+  const border = `<border>${['left', 'right', 'top', 'bottom'].map((edge) => `<${edge} style="thin"><color rgb="FFBEC8B8"/></${edge}>`).join('')}<diagonal/></border>`;
+  const xf = (fontId, fillId, horizontal = 'left', numFmtId = 0, borderId = 1, vertical = 'top') => `<xf numFmtId="${numFmtId}" fontId="${fontId}" fillId="${fillId}" borderId="${borderId}" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1" applyNumberFormat="1"><alignment horizontal="${horizontal}" vertical="${vertical}" wrapText="1" indent="1"/></xf>`;
+  const styles = ['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>', xf(0, 2), xf(0, 3), xf(1, 4, 'center', 0, 1, 'center'), xf(2, 5, 'left', 0, 0, 'center'), xf(3, 6, 'left', 0, 0, 'center'), xf(4, 2), xf(4, 3), xf(0, 2, 'right', 164), xf(0, 3, 'right', 164), xf(5, 2), xf(5, 3), xf(0, 7)];
+  const dxfs = [['9D3030', 'FCE9E6'], ['915324', 'FFF1D6'], ['286345', 'E4F2E8']].map(([color, fill]) => `<dxf>${font(11, color, '<b/>')}<fill><patternFill patternType="solid"><fgColor rgb="FF${fill}"/><bgColor indexed="64"/></patternFill></fill></dxf>`);
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.00"/></numFmts><fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>${border}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${styles.length}">${styles.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles><dxfs count="${dxfs.length}">${dxfs.join('')}</dxfs></styleSheet>`;
 }
 
 function xlsxImageAnchor(relId, index, column, row, label, size = {}) {
-  const width = size.width || 1714500;
-  const height = size.height || 962025;
-  return `<xdr:oneCellAnchor><xdr:from><xdr:col>${column}</xdr:col><xdr:colOff>47625</xdr:colOff><xdr:row>${row}</xdr:row><xdr:rowOff>47625</xdr:rowOff></xdr:from><xdr:ext cx="${width}" cy="${height}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${index}" name="${xmlAttribute(label)}预览 ${index}"/><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`;
+  const boxWidth = size.width || 224, boxHeight = size.height || 152;
+  const sourceWidth = Number(size.sourceWidth) > 0 ? Number(size.sourceWidth) : boxWidth;
+  const sourceHeight = Number(size.sourceHeight) > 0 ? Number(size.sourceHeight) : boxHeight;
+  const scale = Math.min(boxWidth / sourceWidth, boxHeight / sourceHeight);
+  const width = Math.round(sourceWidth * scale * 9525), height = Math.round(sourceHeight * scale * 9525);
+  const offsetX = Math.round((8 + (boxWidth - sourceWidth * scale) / 2) * 9525);
+  const offsetY = Math.round((8 + (boxHeight - sourceHeight * scale) / 2) * 9525);
+  return `<xdr:oneCellAnchor><xdr:from><xdr:col>${column}</xdr:col><xdr:colOff>${offsetX}</xdr:colOff><xdr:row>${row}</xdr:row><xdr:rowOff>${offsetY}</xdr:rowOff></xdr:from><xdr:ext cx="${width}" cy="${height}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${index}" name="${xmlAttribute(label)}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`;
+}
+
+function xlsxFormulaString(value) {
+  return '"' + String(value ?? '').replace(/"/g, '""') + '"';
+}
+
+function xlsxFormulaCell(reference, formula, cachedValue, style) {
+  return `<c r="${reference}" s="${style}" t="str"><f>${xmlText(xlsxSafeText(formula))}</f><v>${xmlText(xlsxSafeText(cachedValue))}</v></c>`;
 }
 
 function xlsxCellRef(column, row) {
@@ -2207,8 +2587,14 @@ function xlsxCellRef(column, row) {
   return label + row;
 }
 
-function xlsxInlineCell(reference, value, style = 0) {
-  return `<c r="${reference}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xmlText(value ?? "")}</t></is></c>`;
+function xlsxInlineCell(reference, value, style = 1) {
+  if (typeof value === "number" && Number.isFinite(value)) return `<c r="${reference}" s="${style}" t="n"><v>${value}</v></c>`;
+  const text = xlsxSafeText(value);
+  return `<c r="${reference}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xmlText(text)}</t></is></c>`;
+}
+
+function xlsxSafeText(value) {
+  return String(value ?? "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "");
 }
 
 function xmlText(value) {
