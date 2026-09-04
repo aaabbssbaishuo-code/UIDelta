@@ -28,7 +28,7 @@ Logo 自有颜色与产品界面原有配色保持不变。宣传排版不使用
 
 ## 文件入口
 
-- [三张 16:9 产品图](CAMPAIGN-README.md)
+- [四张 16:9 产品图](CAMPAIGN-README.md)
 - [交付悬浮图](delivery-previews/README.md)
 - [宣传材料总索引](../docs/marketing/README.md)
 - [文案基准](../docs/marketing/COPY-GUIDE.zh-CN.md)

@@ -26,6 +26,13 @@
       "purpose": "HTML、XLSX 与前端 / Agent 交付"
     },
     {
+      "file": "feature-developer-16x9.png",
+      "source": "feature-developer-16x9.html",
+      "width": 1920,
+      "height": 1080,
+      "purpose": "前端与 Codex：从定位线索到修改复核"
+    },
+    {
       "file": "social-card.png",
       "source": "social-card.html",
       "width": 1280,

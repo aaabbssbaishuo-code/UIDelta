@@ -55,7 +55,7 @@ const {pathToFileURL}=require('node:url');
  }
  // Brand compositions use the captured UI without repainting its controls.
  if(process.argv.includes('--capture-only'))return;
- for(const [name,width,height]of [['cover-16x9',1920,1080],['feature-inspect-16x9',1920,1080],['feature-delivery-16x9',1920,1080],['social-card',1280,640],['launch-poster',1080,1440]]){
+ for(const [name,width,height]of [['cover-16x9',1920,1080],['feature-inspect-16x9',1920,1080],['feature-delivery-16x9',1920,1080],['feature-developer-16x9',1920,1080],['social-card',1280,640],['launch-poster',1080,1440]]){
   const art=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
   await art.goto(pathToFileURL(path.resolve(`brand/${name}.html`)).href);
   await art.evaluate(()=>document.fonts.ready);
@@ -63,6 +63,6 @@ const {pathToFileURL}=require('node:url');
  }
  await fs.copyFile('brand/screenshots/workspace-inspect.png','site/assets/product-preview.png');
  await fs.copyFile('brand/social-card.png','site/assets/social-card.png');
- console.log('Five marketing compositions and site previews exported.');
+ console.log('Six marketing compositions and site previews exported.');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exit(1)});

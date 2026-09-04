@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>让 Codex，接着改。— UIDelta</title><link rel="stylesheet" href="campaign-16x9.css"><link rel="stylesheet" href="developer-16x9.css"></head>
+<body class="developer-page">
+<header class="c-header"><div class="c-brand"><img src="icon.svg" alt="">UIDelta<span>.</span></div><span class="edition">给前端的走查交付。</span></header>
+<section class="title-row"><div><div class="eyebrow">把已有的线索，交给会改代码的工具。</div><h1>让 Codex，<em>接着改。</em></h1></div><p>网页地址、元素定位、截图和修改要求，<br>打包交给项目里的 Codex。</p></section>
+<main class="dev-flow">
+<section class="dev-bundle"><div class="flow-label"><b>01</b> 收到 ZIP</div><h2>问题，已经带上地址。</h2><div class="zip-name"><span>ZIP</span><strong>UIDelta-review.zip</strong></div><div class="locator-row"><span>页面</span><code>orbit.example/workspace</code></div><div class="locator-row element"><span>元素定位</span><code>[data-testid='brand-project']</code></div><div class="evidence-row"><span>截图与实测间距</span><div class="evidence-crop"><img src="screenshots/workspace-record.png" alt="UIDelta 在网页上测出卡片间距 24px"></div></div><div class="request-line"><span>修改要求</span><strong>24px <i>→</i> <em>16px</em></strong></div><div class="bundle-note">report.md · issues.json · assets/</div></section>
+<div class="connector" aria-hidden="true">→</div>
+<section class="dev-codex"><div class="flow-label"><b>02</b> 交给 Codex</div><h2>从线索，找到实现。</h2><div class="project-line"><span>Codex</span><b>+</b><span>你的项目源码</span></div><blockquote>读取这个走查包，<br>找到对应实现，按要求修改，<br>完成后在页面复核。</blockquote><ol><li><span>1</span>读取报告与截图</li><li><span>2</span>用定位线索查找组件</li><li><span>3</span>确认样式来源，再修改</li></ol><p>提供项目路径、运行方式<br>与修改授权。</p></section>
+<div class="connector" aria-hidden="true">→</div>
+<section class="dev-result"><div class="flow-label"><b>03</b> 回到页面</div><h2>按问题，逐项复核。</h2><div class="change-code"><span>示例修改 · 父容器间距</span><code>.projects {</code><code class="old">−  gap: 24px;</code><code class="new">+  gap: 16px;</code><code>}</code></div><div class="target"><span>UI-001 · 验收目标</span><strong>16<small>px</small></strong><p>在对应页面与视口，确认实际效果。</p></div><div class="check-output"><span>修改文件</span><span>验证结果</span><span>未解决项</span></div></section>
+</main>
+<div class="dev-benefits"><span><b>少找一遍。</b>页面与元素已有线索</span><span><b>少猜一轮。</b>实际与目标一起交付</span><span><b>少拼一次上下文。</b>直接读取已有文件</span></div>
+<footer class="c-footer"><span>流程示意 · 示例数据</span><span>元素定位是网页线索；Codex 需结合源码验证、修改与复核。</span><span>UIDelta / 04</span></footer>
+</body></html>

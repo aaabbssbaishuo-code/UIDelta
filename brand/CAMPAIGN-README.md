@@ -7,12 +7,13 @@
 | `cover-16x9.png` | 看见问题。说清怎么改。 |
 | `feature-inspect-16x9.png` | 差多少，直接量。 |
 | `feature-delivery-16x9.png` | 记录一次，接着改。 |
+| `feature-developer-16x9.png` | 让 Codex，接着改。 |
 
-三张均为 **1920×1080**。白色、石墨与标注橙统一呈现；产品界面保持正视，不倾斜、不叠压。封面用「实际 24px → 设计要求 16px」说明如何把偏差变成清楚的修改要求。
+四张均为 **1920×1080**。白色、石墨与标注橙统一呈现；产品界面保持正视，不倾斜、不叠压。封面用「实际 24px → 设计要求 16px」说明如何把偏差变成清楚的修改要求。
 
 ## 编辑与导出
 
-同名 HTML 是可编辑源文件，共用 `campaign-16x9.css`，依赖 `icon.svg` 与 `screenshots/`。保持这些相对路径即可本地打开。
+同名 HTML 是可编辑源文件，共用 `campaign-16x9.css`，开发者专题还使用 `developer-16x9.css`，依赖 `icon.svg` 与 `screenshots/`。保持这些相对路径即可本地打开。
 
 在完整仓库中运行 `scripts/render-marketing.cjs --art-only` 只更新宣传图；不加参数时会重新采集产品界面。脚本需要 Playwright 与本机 Chrome。运行 `npm run build` 重建 ZIP。
 

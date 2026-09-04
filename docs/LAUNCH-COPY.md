@@ -64,5 +64,24 @@ https://github.com/aaabbssbaishuo-code/UIDelta
 1. `brand/cover-16x9.png` — 看见问题。说清怎么改。
 2. `brand/feature-inspect-16x9.png` — 差多少，直接量。
 3. `brand/feature-delivery-16x9.png` — 记录一次，接着改。
+4. `brand/feature-developer-16x9.png` — 让 Codex，接着改。
 
-三张均为 1920×1080。GitHub 社交预览使用 `brand/social-card.png`；竖版发布使用 `brand/launch-poster.png`。更多文件见 [素材索引](marketing/README.md)。
+四张均为 1920×1080。GitHub 社交预览使用 `brand/social-card.png`；竖版发布使用 `brand/launch-poster.png`。更多文件见 [素材索引](marketing/README.md)。
+
+## 面向前端的发布正文
+
+让 Codex，接着改。
+
+前端拿到设计反馈，往往要先找页面、认元素、确认目标，再把上下文重新讲给 AI。
+
+UIDelta 把这些依据跟着问题一起打包：页面 URL、DOM 选择器、元素文本、实测样式、截图和修改要求。
+
+收到 ZIP，放进项目，告诉 Codex 路径。让它读取报告、验证对应实现，按要求修改，再回到页面复核。
+
+少找一遍。少猜一轮。少拼一次上下文。
+
+免费开源，走查数据保存在本地。Codex 需要项目源码、运行环境与修改授权；UIDelta 提供网页定位线索，不是预先确定的源码行号。暂不承诺提效比例或自动修复成功率。
+
+https://github.com/aaabbssbaishuo-code/UIDelta#for-developers
+
+配图：`brand/feature-developer-16x9.png`，1920×1080。研究依据见 [开发者交付调研](marketing/DEVELOPER-HANDOFF-RESEARCH.zh-CN.md)。

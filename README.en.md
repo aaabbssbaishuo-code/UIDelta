@@ -26,7 +26,29 @@ Turn “this looks wrong” into a review report your developer can act on.
 
 ![Review handoff with HTML, XLSX and ZIP.](brand/feature-delivery-16x9.png)
 
-**Give the ZIP to an agent in your project.** The agent also needs source code, a runnable environment and permission to edit. It must verify the matching implementation and check the page after making changes. See the [agent handoff guide and prompt](docs/AGENT-HANDOFF.md).
+<a id="for-developers"></a>
+
+## For developers: let Codex take it from here.
+
+**Put the review ZIP in your project and point Codex to it.** Page URLs, element locators, screenshots and requested changes travel with the issue, reducing the context you need to collect and explain again.
+
+![From a UIDelta ZIP to code changes and verification.](brand/feature-developer-16x9.png)
+
+- **Less searching.** URLs, DOM selectors, test IDs and element text provide starting points for finding the implementation.
+- **Less guessing.** Measured styles, screenshots and explicit change requests explain what differs and what should change.
+- **Less prompt assembly.** Let Codex read `report.md`, `issues.json` and `assets/`, find the corresponding code, then make and verify changes by issue ID.
+
+Open your project in Codex and give it the ZIP path. If archive reading is unavailable, extract the ZIP first and provide the folder path. Ask:
+
+```text
+Read this UIDelta review bundle and locate the issues in this codebase.
+Make the explicitly requested changes, run relevant checks, and verify
+on the page. Report changed files, results and unresolved items by issue ID.
+```
+
+DOM locators are clues, not verified source file paths. Codex needs project source, a runnable environment and permission to edit. Missing design targets need clarification.
+
+Our workflow analysis identifies six areas of reduced handoff work, not a measured productivity percentage. [Research and sources (Chinese)](docs/marketing/DEVELOPER-HANDOFF-RESEARCH.zh-CN.md) · [Full handoff guide](docs/AGENT-HANDOFF.md)
 
 ## Start with your next review.
 

@@ -12,6 +12,7 @@
 | 社交发布、中英文介绍、GitHub About | [发布文案](../LAUNCH-COPY.md) |
 | Chrome 商店介绍 | [商店文案](STORE-LISTING.zh-CN.md) |
 | 产品定义与功能事实 | [产品定义](../PRODUCT.md) |
+| 开发者痛点、字段核对与宣传依据 | [开发者交付调研](DEVELOPER-HANDOFF-RESEARCH.zh-CN.md) |
 | 前端与 Agent 交接说明 | [Agent 交接](../AGENT-HANDOFF.md) |
 
 ## 再选图片
@@ -21,6 +22,7 @@
 | 产品封面 | 1920×1080 · 16:9 | [PNG](../../brand/cover-16x9.png) / [HTML](../../brand/cover-16x9.html) |
 | 测量、记录、取证 | 1920×1080 · 16:9 | [PNG](../../brand/feature-inspect-16x9.png) / [HTML](../../brand/feature-inspect-16x9.html) |
 | HTML、XLSX、ZIP 交付 | 1920×1080 · 16:9 | [PNG](../../brand/feature-delivery-16x9.png) / [HTML](../../brand/feature-delivery-16x9.html) |
+| 前端与 Codex 专题 | 1920×1080 · 16:9 | [PNG](../../brand/feature-developer-16x9.png) / [HTML](../../brand/feature-developer-16x9.html) |
 | GitHub 社交预览 | 1280×640 | [PNG](../../brand/social-card.png) / [HTML](../../brand/social-card.html) |
 | 竖版发布海报 | 1080×1440 | [PNG](../../brand/launch-poster.png) / [HTML](../../brand/launch-poster.html) |
 | 三种交付悬浮图 | 270×164 / 540×328 | [PNG 与 SVG](../../brand/delivery-previews/) |
@@ -33,7 +35,7 @@
 
 - [在线预览](https://aaabbssbaishuo-code.github.io/UIDelta/press.html)
 - [完整宣传包](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-marketing-kit.zip)：图片、Logo、截图、可编辑源文件、文案和素材索引。
-- [三张 16:9 组图](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-promo-16x9.zip)
+- [四张 16:9 组图](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-promo-16x9.zip)
 - [三种交付预览](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-delivery-previews.zip)
 
 ## 维护
