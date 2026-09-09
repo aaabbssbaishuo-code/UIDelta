@@ -1,6 +1,6 @@
 <h1 align="center">UIDelta</h1>
 <p align="center"><strong>See the issue. Make the fix clear.</strong></p>
-<p align="center"><a href="README.md">简体中文</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/">Website</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip">Free download</a> · <a href="LICENSE">MIT License</a></p>
+<p align="center"><a href="README.md">简体中文</a> · <a href="https://tu-dot.github.io/UIDelta/">Website</a> · <a href="https://tu-dot.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip">Free download</a> · <a href="LICENSE">MIT License</a></p>
 
 ![UIDelta: see the issue, make the fix clear.](brand/cover-16x9.png)
 
@@ -54,7 +54,7 @@ Our workflow analysis identifies six areas of reduced handoff work, not a measur
 
 **v0.9.4 is a developer preview.** Install it as an unpacked Chrome extension; it is not yet on the Chrome Web Store.
 
-1. [Download the ZIP](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip) and extract it.
+1. [Download the ZIP](https://tu-dot.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip) and extract it.
 2. Open `chrome://extensions`, enable **Developer mode**, then choose **Load unpacked** and select the **UIDelta** folder containing `manifest.json`.
 3. Pin the extension and refresh the page. Click UIDelta or press **Option / Alt + Shift + I**.
 
@@ -97,7 +97,7 @@ Local style previews and undo, region capture, issue search and filters are avai
 Node.js 22+ is required. There are no npm dependencies.
 
 ```sh
-git clone https://github.com/aaabbssbaishuo-code/UIDelta.git
+git clone https://github.com/tu-dot/UIDelta.git
 cd UIDelta
 npm run check
 npm test
@@ -107,6 +107,6 @@ npm start
 
 Preview the site at `http://127.0.0.1:4173/`. Packages are written to `release/`; the deployable site is in `_site/`.
 
-[Report an issue](https://github.com/aaabbssbaishuo-code/UIDelta/issues) · [Contribute](CONTRIBUTING.md) · [Roadmap](ROADMAP.md) · [Press kit](docs/marketing/README.md)
+[Report an issue](https://github.com/tu-dot/UIDelta/issues) · [Contribute](CONTRIBUTING.md) · [Roadmap](ROADMAP.md) · [Press kit](docs/marketing/README.md)
 
-By [白土墩](https://github.com/aaabbssbaishuo-code) · [MIT License](LICENSE)
+By [土墩](https://github.com/tu-dot) · [MIT License](LICENSE)

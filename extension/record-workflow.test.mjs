@@ -156,7 +156,7 @@ function harness({ reducedMotion = false } = {}) {
     frame.forEach(([, callback]) => callback(16));
   };
   env.flushFocus = () => { env.flushFrame(); env.flushFrame(); };
-  const sandbox = { document: env.document, window: windowMock, Element: MockElement, HTMLElement: MockElement };
+  const sandbox = { document: env.document, window: windowMock, Element: MockElement, HTMLElement: MockElement, structuredClone };
   vm.createContext(sandbox);
   vm.runInContext(source.slice(classStart, bootStart) + "\nglobalThis.ReviewClass = UIDeltaReview;", sandbox);
   env.review = (overrides = {}) => Object.assign(Object.create(sandbox.ReviewClass.prototype), overrides);
@@ -871,6 +871,56 @@ test("参考图等待取证草稿完成后上传；保存等待参考图，最�
   env.requests[1].resolve({ ok:true, issue:env.requests[1].message.issue });
   await saving;
   assert.equal(editor.composer, null);
+});
+
+test("结果参考文字与问题附图角色一起保存；图片问题无需额外文字", async () => {
+  const env = savingHarness({capturing:false});
+  const {editor} = env;
+  editor.resultInput = env.create('textarea'); editor.resultInput.value = '期望效果\n保留换行';
+  editor.descriptionInput.value = '';
+  editor.renderComposerEvidence = () => {};
+  editor.readFileAsDataUrl = async () => 'data:image/png;base64,test';
+  const upload = editor.addReferenceImages([{type:'image/png',name:'problem.png'}], 'description');
+  await settle(); env.requests[0].resolve({ok:true,asset:{id:'problem-image'}}); await upload;
+  assert.deepEqual(Array.from(editor.composer.issue.attachments.descriptionImages), ['problem-image']);
+  const saving = editor.saveComposer(); await settle();
+  const request = env.requests[1];
+  assert.equal(request.message.issue.resultReference, '期望效果\n保留换行');
+  assert.equal(request.message.issue.title, '【UI】图片问题');
+  assert.equal(editor.resultInput.readOnly, true);
+  request.resolve({ok:true,issue:request.message.issue}); await saving;
+  assert.equal(editor.composer,null);
+});
+
+test("纯文本粘贴保持原生行为；混合粘贴在光标处插入文字并传递图片用途", async () => {
+  const {editor} = savingHarness({capturing:false});
+  let prevented = false, upload;
+  editor.addReferenceImages = (files,role) => {upload = {files,role};};
+  const target = {selectionStart:2,selectionEnd:4,setRangeText(...args){this.inserted=args;}};
+  const event = {target,preventDefault(){prevented=true;},clipboardData:{items:[],getData:()=> '结果'}};
+  editor.pasteComposerImages(event,'result');
+  assert.equal(prevented,false); assert.equal(upload,undefined);
+  const file = {type:'image/png'};
+  event.clipboardData.items = [{kind:'file',type:'image/png',getAsFile:()=>file}];
+  editor.pasteComposerImages(event,'result');
+  assert.equal(prevented,true); assert.deepEqual(target.inserted,['结果',2,4,'end']);
+  assert.equal(upload.role,'result'); assert.equal(upload.files[0],file);
+  upload=undefined;editor.composer.saving=true;
+  editor.pasteComposerImages(event,'description'); assert.equal(upload,undefined);
+});
+
+test("草稿恢复快照保留结果文字和附图分类，移除图片同步移除分类", async () => {
+  const env = savingHarness({capturing:false}), {editor}=env;
+  editor.composer.formReady=true;
+  editor.resultInput=env.create('textarea');editor.resultInput.value='新的结果参考';
+  editor.composer.issue.attachments.references=['a','b'];
+  editor.composer.issue.attachments.descriptionImages=['a'];
+  const snapshot=editor.composerTabSnapshot();
+  assert.equal(snapshot.issue.resultReference,'新的结果参考');
+  editor.renderComposerEvidence=()=>{}; await editor.removeReferenceAsset('a');
+  assert.deepEqual(Array.from(editor.composer.issue.attachments.references),['b']);
+  assert.equal(editor.composer.issue.attachments.descriptionImages.length,0);
+  assert.equal(snapshot.issue.attachments.descriptionImages[0],'a');
 });
 
 test("保存等待中的参考图上传失败时停留表单，不静默提交缺图版本", async () => {

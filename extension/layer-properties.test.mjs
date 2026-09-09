@@ -60,6 +60,30 @@ function renderFixture(style = computed(), element = {}, bounds = { width: 600, 
 }
 
 const cases = [
+  ["输入框没有 textContent 仍显示基础字体，且区别占位色", () => {
+    sandbox.window.getComputedStyle = () => ({color:"rgb(150, 150, 150)",opacity:"0.6"});
+    const fixture = renderFixture(computed(), {tagName:"INPUT",type:"search",placeholder:"搜索文件",value:""}, undefined, "");
+    assert.equal(fixture.value("font-size"),"14px");
+    assert.equal(fixture.value("line-height"),"21px");
+    assert.equal(fixture.value("font-weight"),"400");
+    assert.equal(fixture.value("text-color"),"rgb(20, 20, 20)");
+    assert.equal(fixture.value("placeholder-color"),"rgb(150, 150, 150)");
+    const filled = renderFixture(computed(), {tagName:"INPUT",value:"已有值",placeholder:"搜索"}, undefined, "");
+    assert.equal(filled.value("font-size"),"14px");assert.equal(filled.value("placeholder-color"),"");
+    for (const tagName of ["TEXTAREA","SELECT"]) assert.equal(renderFixture(computed(),{tagName},undefined,"").value("font-size"),"14px");
+  }],
+  ["阴影过滤透明层和全零层，保留真实外阴影、内阴影及外发光", () => {
+    const fake = 'rgba(0, 0, 0, 0) 0px 0px 0px 0px';
+    assert.equal(review.visibleBoxShadows(Array(5).fill(fake).join(', ')), '');
+    assert.equal(review.visibleBoxShadows('rgb(0, 0, 0) 0px 0px 0px 0px'), '');
+    assert.equal(review.visibleBoxShadows('oklch(50% 0.1 120 / 0%) 0px 2px 8px'), '');
+    const visible = 'rgba(0, 0, 0, 0.15) 0px 2px 8px 0px';
+    assert.equal(review.visibleBoxShadows(fake+', '+visible),visible);
+    const ring = 'oklch(50% 0.1 120 / 0.5) 0px 0px 0px 3px';
+    assert.equal(review.visibleBoxShadows(ring),ring);
+    assert.equal(review.visibleBoxShadows('inset rgb(0, 0, 0) 0px 1px 0px'),'inset rgb(0, 0, 0) 0px 1px 0px');
+    assert.equal(renderFixture(computed({boxShadow:fake})).node('row','shadow').hidden,true);
+  }],
   ["外边距保留负数、小数与 auto，不参与内容尺寸扣减", () => {
     const style = computed({ marginTop:"-8.5px", marginRight:"auto", marginBottom:"16.25px", marginLeft:"4px" });
     const box = review.layerBoxMetrics({}, style);

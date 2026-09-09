@@ -637,7 +637,7 @@ async function putIssue(input, sender) {
     const requestedSequence = positiveSafeInteger(input.sequence, 0);
     const sequence = existing
       ? positiveSafeInteger(existing.sequence, positiveSafeInteger(input.sequence, 1))
-      : requestedSequence > 0 && !usedSequences.has(requestedSequence)
+      : requestedSequence > 0 && finiteNumber(input.numberingEpoch, 0) === finiteNumber(session.numberingEpoch, 0) && !usedSequences.has(requestedSequence)
         ? requestedSequence
         : Math.max(positiveSafeInteger(session.nextIssueNumber, 1), positiveSafeInteger(maxSequence + 1, 1));
     const type = nonEmptyString(input.type || existing?.type) || "ui";
@@ -648,6 +648,7 @@ async function putIssue(input, sender) {
       sessionId,
       type,
       sequence,
+      numberingEpoch: finiteNumber(session.numberingEpoch, 0),
       displayId: `${issueTypePrefix(type)}-${String(sequence).padStart(3, "0")}`,
       revision: currentIssueRevision + 1,
       createdAt: input.createdAt || existing?.createdAt || now,
@@ -739,10 +740,13 @@ async function deleteIssues(message, sender) {
     const assetIds = assetGroups.flat().map((asset) => asset.id);
     for (const issue of existing) issueStore.delete(issue.id);
     for (const assetId of assetIds) assetStore.delete(assetId);
-    // One transaction covers the exact snapshot, all screenshot kinds and the
-    // revision used by exports. Never reset numbering or delete other sessions.
+    // Reset only for an explicit clear and only if no concurrent/new record
+    // survives. The emptiness check and counter write share this transaction.
+    const remaining = message.resetSequence === true
+      ? await requestResult(issueStore.index("sessionId").getAll(sessionId)) : null;
+    const resetSequence = remaining?.length === 0;
     if (existing.length) {
-      session = { ...session, revision:finiteNumber(session.revision, 0) + 1, updatedAt:new Date().toISOString() };
+      session = { ...session, ...(resetSequence ? { nextIssueNumber:1, numberingEpoch:finiteNumber(session.numberingEpoch, 0) + 1 } : {}), revision:finiteNumber(session.revision, 0) + 1, updatedAt:new Date().toISOString() };
       sessionStore.put(session);
     }
     await done;
@@ -992,7 +996,8 @@ async function prepareDeliveryBundle(sessionIdInput, sender, issueIdsInput, asCo
     attachmentPaths: {
       context: exportPathsByAssetId.get(issue.attachments?.context) || null,
       detail: exportPathsByAssetId.get(issue.attachments?.detail) || null,
-      references: (Array.isArray(issue.attachments?.references) ? issue.attachments.references : []).map((assetId) => exportPathsByAssetId.get(assetId)).filter(Boolean)
+      references: (Array.isArray(issue.attachments?.references) ? issue.attachments.references : []).map((assetId) => exportPathsByAssetId.get(assetId)).filter(Boolean),
+      descriptionImages: (Array.isArray(issue.attachments?.descriptionImages) ? issue.attachments.descriptionImages : []).filter((id) => issue.attachments?.references?.includes(id)).map((id) => exportPathsByAssetId.get(id)).filter(Boolean)
     }
   }));
   const exportedAt = new Date().toISOString();
@@ -1100,7 +1105,7 @@ async function importDeliverable(sessionIdInput, payload, assetDataInput, sender
         throw new Error(`${incoming.displayId || sourceIssueId} 缺少完整截图证据。`);
       }
       const issueId = makeId("issue");
-      const attachments = { references: [] };
+      const attachments = { references: [], descriptionImages:[] };
       for (const [kind, path] of attachmentPathSets) {
         const sourceAsset = assetsByPath.get(path);
         const dataUrl = dataByPath.get(path);
@@ -1129,6 +1134,7 @@ async function importDeliverable(sessionIdInput, payload, assetDataInput, sender
         assetStore.put(asset);
         if (kind === "reference") attachments.references.push(assetId);
         else attachments[kind] = assetId;
+        if (kind === "reference" && Array.isArray(paths.descriptionImages) && paths.descriptionImages.includes(path)) attachments.descriptionImages.push(assetId);
       }
       const type = ["ui", "functional", "content"].includes(incoming.type) ? incoming.type : "ui";
       const issue = {
@@ -1140,6 +1146,7 @@ async function importDeliverable(sessionIdInput, payload, assetDataInput, sender
         type,
         title: nonEmptyString(incoming.title) || firstLine(incoming.description) || "导入的问题",
         description: typeof incoming.description === "string" ? incoming.description.slice(0, 10000) : "",
+        resultReference: typeof incoming.resultReference === "string" ? incoming.resultReference.slice(0, 10000) : "",
         priority: nonEmptyString(incoming.priority) || "queued",
         severity: nonEmptyString(incoming.severity) || "cosmetic",
         pageSnapshot: isRecord(incoming.pageSnapshot) ? structuredClone(incoming.pageSnapshot) : {},
@@ -1855,6 +1862,7 @@ function buildMarkdownReport(session, issues, assets, exportedAt) {
       `- 文字色：${markdownText(actual.color)}；背景色：${markdownText(actual.background)}；圆角：${markdownText(actual.borderRadius)}`, ""
     );
     if (issue.description) lines.push(markdownText(issue.description), "");
+    if (issue.resultReference) lines.push("### 结果参考", "", markdownText(issue.resultReference), "");
     if (issue.designSnapshot) {
       lines.push(
         "### 设计比对", "",
@@ -1890,7 +1898,7 @@ function buildMarkdownReport(session, issues, assets, exportedAt) {
       lines.push("");
     }
     for (const asset of groups.get(issue.id) || []) {
-      const title = asset.kind === "detail" ? "Detail" : asset.kind === "reference" ? "Reference" : "Context";
+      const title = asset.kind === "detail" ? "Detail" : asset.kind === "reference" ? (issue.attachments?.descriptionImages?.includes(asset.id) ? "问题附图" : "结果参考") : "Context";
       lines.push(`![${title}](${asset.exportPath})`, "");
     }
   });
@@ -1969,7 +1977,10 @@ function htmlReportStyles() {
 
 function buildHtmlIssueCard(issue, assets, index) {
   const id = issue.id || String(index);
-  const displayId = issue.displayId || "UI-" + String(index + 1).padStart(3, "0");
+  // Report order is presentation only. Never renumber stored issues or keys
+  // used by screenshots, imports and saved resolution status.
+  const displayId = issueTypePrefix(issue.type) + "-" + String(index + 1).padStart(3, "0");
+  const originalDisplayId = issue.displayId || displayId;
   const findEvidence = (kind) => issue.attachments?.[kind]
     ? assets.find((asset) => asset.id === issue.attachments[kind] && asset.kind === kind)
     : assets.find((asset) => asset.kind === kind);
@@ -1979,7 +1990,7 @@ function buildHtmlIssueCard(issue, assets, index) {
   const evidence = [
     htmlEvidenceFigure(findEvidence("context"), "全景", displayId),
     htmlEvidenceFigure(findEvidence("detail"), "细节", displayId),
-    ...references.map((asset, i) => htmlEvidenceFigure(asset, "参考 " + (i + 1), displayId))
+    ...references.map((asset, i) => htmlEvidenceFigure(asset, (issue.attachments?.descriptionImages?.includes(asset.id) ? "问题附图 " : "结果参考 ") + (i + 1), displayId))
   ].filter(Boolean).join("");
   const description = nonEmptyString(issue.description);
   const rawTitle = nonEmptyString(issue.title).replace(/^【[^】]+】\s*/, "");
@@ -1998,6 +2009,7 @@ function buildHtmlIssueCard(issue, assets, index) {
   const snapshot = issue.webSnapshot || {};
   const technical = [
     htmlReportPropertyGroup("定位", [
+      ["原始编号", originalDisplayId !== displayId ? originalDisplayId + "（对应原截图与证据包）" : ""],
       ["选择器", deliverySelector(issue)], ["标签", issue.elementAnchor?.tag],
       ["文本", issue.elementAnchor?.text], ["父级", issue.elementAnchor?.parentFingerprint],
       ["测试标识", issue.elementAnchor?.testId], ["元素 ID", issue.elementAnchor?.id],
@@ -2023,7 +2035,7 @@ function buildHtmlIssueCard(issue, assets, index) {
   const change = htmlReportChanges("修改建议", issue.changeProposal?.changes, "before", "after");
   const diffs = htmlReportChanges("设计对比 · 期望 → 实测", issue.diffs, "expected", "actual");
   const severity = ({ minor: "cosmetic", major: "degraded" })[issue.severity] || issue.severity || "cosmetic";
-  const source = [displayId, title, description, issue.pageSnapshot?.title, issue.pageSnapshot?.route, deliveryElementLocator(issue), actual.summary].filter(Boolean).join(" ").toLowerCase();
+  const source = [displayId, originalDisplayId, title, description, issue.resultReference, issue.pageSnapshot?.title, issue.pageSnapshot?.route, deliveryElementLocator(issue), actual.summary].filter(Boolean).join(" ").toLowerCase();
   const page = nonEmptyString(issue.pageSnapshot?.url);
   let safePage = "", hostname = "";
   try {
@@ -2039,6 +2051,7 @@ function buildHtmlIssueCard(issue, assets, index) {
     '<header class="issue-head"><div class="issue-topline"><span class="issue-id">' + htmlText(displayId) + '</span><div class="chips"><span class="chip">' + htmlText(deliveryTypeLabel(issue.type)) + '</span><span class="chip">' + htmlText(deliveryPriorityLabel(issue.priority)) + '</span><span class="chip' + (["crash", "blocked", "degraded"].includes(severity) ? ' major' : '') + '">' + htmlText(deliverySeverityLabel(issue.severity)) + '</span></div><span class="state-label">待处理</span></div><h2>' + htmlText(title) + '</h2></header>',
     '<div class="issue-body"><div class="issue-copy">',
     body ? '<p class="description">' + htmlText(body) + '</p>' : "",
+    issue.resultReference ? '<section class="changes"><h3>结果参考</h3><p class="description">' + htmlText(issue.resultReference) + '</p></section>' : "",
     facts.length ? '<dl class="facts">' + facts.map(([label, value]) => '<div><dt>' + htmlText(label) + '</dt><dd>' + htmlText(value) + '</dd></div>').join("") + '</dl>' : "",
     change, diffs,
     technical ? '<details class="technical"><summary>技术详情</summary><div class="technical-body">' + technical + '</div></details>' : "",
@@ -2391,11 +2404,11 @@ async function buildXlsxReport(session, issues, assets, exportedAt) {
     "编号", "类型", "问题描述", "优先级", "影响程度", "负责人", "处理状态", "修复版本",
     "元素定位", "实测 / 说明", "实测宽(px)", "实测高(px)", "坐标 X(px)", "坐标 Y(px)", "测距(px)",
     "布局", "间距", "字体", "文字颜色", "背景色", "圆角", "DOM 选择器", "页面路径", "页面地址",
-    "记录模式", "全景预览", "细节预览", "全景截图文件", "细节截图文件"
+    "记录模式", "全景预览", "细节预览", "全景截图文件", "细节截图文件", "结果参考", "问题附图数", "结果参考图数"
   ];
-  const widths = [12, 10, 42, 15, 15, 14, 15, 16, 42, 44, 14, 14, 14, 14, 24, 16, 34, 40, 26, 26, 16, 48, 34, 44, 18, 16, 16, 32, 32];
-  const evidenceHeaders = ["编号", "问题描述", "细节截图", "全景截图", "分类 / 进展", "元素定位", "实测 / 说明"];
-  const evidenceWidths = [12, 34, 34, 34, 17, 28, 28];
+  const widths = [12, 10, 42, 15, 15, 14, 15, 16, 42, 44, 14, 14, 14, 14, 24, 16, 34, 40, 26, 26, 16, 48, 34, 44, 18, 16, 16, 32, 32, 42, 14, 16];
+  const evidenceHeaders = ["编号", "问题描述", "细节截图", "全景截图", "分类 / 进展", "元素定位", "实测 / 说明", "补充说明", "补充图片"];
+  const evidenceWidths = [12, 38, 34, 34, 17, 28, 28, 36, 48];
   const rows = [], evidenceRows = [], links = [];
   const imageEntries = [], drawingAnchors = [], drawingRelations = [];
   const lastRow = Math.max(5, issues.length + 4);
@@ -2414,6 +2427,8 @@ async function buildXlsxReport(session, issues, assets, exportedAt) {
       ? issueAssets.find((asset) => asset.id === issue.attachments[kind] && asset.kind === kind)
       : issueAssets.find((asset) => asset.kind === kind);
     const context = findEvidence("context"), detail = findEvidence("detail");
+    const references = issueAssets.filter((asset) => asset.kind === "reference" && issue.attachments?.references?.includes(asset.id));
+    const descriptionImages = references.filter((asset) => issue.attachments?.descriptionImages?.includes(asset.id));
     const id = issue.displayId || `UI-${String(index + 1).padStart(3, "0")}`;
     const actual = deliveryActualDetails(issue);
     const developer = buildDeveloperFields(issue);
@@ -2427,16 +2442,17 @@ async function buildXlsxReport(session, issues, assets, exportedAt) {
       locator, summary, actual.rect.width, actual.rect.height, actual.rect.x, actual.rect.y, actual.measurement || "未记录",
       actual.layout, actual.spacing.replace(/；/g, "\n"), actual.typography, actual.color, actual.background, actual.borderRadius,
       developer.elementLocator.selector || "未记录", issue.pageSnapshot?.route || "未记录", issue.pageSnapshot?.url || "未记录",
-      developer.captureMode, context ? "查看全景 ↗" : "无截图", detail ? "查看细节 ↗" : "无截图", context?.exportPath || "", detail?.exportPath || ""
+      developer.captureMode, context ? "查看全景 ↗" : "无截图", detail ? "查看细节 ↗" : "无截图", context?.exportPath || "", detail?.exportPath || "",
+      issue.resultReference || "", descriptionImages.length, references.length - descriptionImages.length
     ];
     const cells = values.map((value, column) => {
-      const style = column === 0 ? 6 + striped : column >= 10 && column <= 13 ? 8 + striped
+      const style = column === 2 ? 13 + striped : column === 0 ? 6 + striped : column >= 10 && column <= 13 ? 8 + striped
         : [23, 25, 26].includes(column) ? 10 + striped : column >= 5 && column <= 7 ? 12 : bodyStyle;
       return xlsxInlineCell(xlsxCellRef(column + 1, row), value, style);
     }).join("");
     // The list no longer needs screenshot-sized rows; screenshots live in the
     // first sheet. Long technical text wraps without spilling into neighbours.
-    const rowHeight = xlsxRowHeight(values, widths, 48);
+    const rowHeight = Math.min(409, Math.max(xlsxRowHeight(values, widths, 48), xlsxRowHeight([description], [widths[2] * 11 / 14], 48) * 14 / 11));
     rows.push(`<row r="${row}" ht="${rowHeight}" customHeight="1">${cells}</row>`);
     links.push({ ref:`A${row}`, location:`'证据预览'!A${row}` });
     if (context) links.push({ ref:`Z${row}`, location:`'证据预览'!D${row}` });
@@ -2444,15 +2460,20 @@ async function buildXlsxReport(session, issues, assets, exportedAt) {
     if (/^https?:\/\//i.test(issue.pageSnapshot?.url || "")) links.push({ ref:`X${row}`, target:issue.pageSnapshot.url });
 
     const classification = [values[1], values[3], values[4], status].join("\n");
-    const evidenceValues = [id, description, detail ? "" : "未记录细节截图", context ? "" : "未记录全景截图", classification, locator, summary];
-    const evidenceHeight = xlsxRowHeight(evidenceValues, evidenceWidths, 126);
+    const evidenceValues = [id, description, detail ? "" : "未记录细节截图", context ? "" : "未记录全景截图", classification, locator, summary, issue.resultReference || "", ""];
+    const imageColumns = references.length > 3 ? 2 : 1;
+    const imageRows = Math.ceil(references.length / imageColumns);
+    const evidenceHeight = Math.min(409, Math.max(xlsxRowHeight(evidenceValues, evidenceWidths, 126),
+      xlsxRowHeight([description], [evidenceWidths[1] * 11 / 14], 126) * 14 / 11,
+      imageRows * 105 + 12));
     // Lookup by stable issue id, not row number: sorting the follow-up sheet
     // must not silently associate another problem with these screenshots.
     const match = `MATCH($A${row},'问题清单'!$A$5:$A$${lastRow},0)`;
     const lookup = (col) => `INDEX('问题清单'!$${col}$5:$${col}$${lastRow},${match})`;
     const evidenceCells = evidenceValues.map((value, column) => {
       const ref = xlsxCellRef(column + 1, row);
-      if (column === 1) return xlsxFormulaCell(ref, `IFERROR(${lookup("C")},"未找到对应问题")`, value, bodyStyle);
+      if (column === 1) return xlsxFormulaCell(ref, `IFERROR(${lookup("C")},"未找到对应问题")`, value, 13 + striped);
+      if (column === 7) return xlsxFormulaCell(ref, `IFERROR(${lookup("AD")}&"","未找到对应问题")`, value, bodyStyle);
       if (column === 4) return xlsxFormulaCell(ref, `IFERROR(${["B", "D", "E", "G"].map(lookup).join('&CHAR(10)&')},"未找到对应问题")`, value, bodyStyle);
       return xlsxInlineCell(ref, value, column === 0 ? 6 + striped : bodyStyle);
     }).join("");
@@ -2469,6 +2490,23 @@ async function buildXlsxReport(session, issues, assets, exportedAt) {
         width:Math.floor(evidenceWidths[column] * 7 + 5 - 16), height:Math.min(152, evidenceHeight * 4 / 3 - 16)
       }));
     }
+    for (const [referenceIndex, asset] of references.entries()) {
+      const role = issue.attachments?.descriptionImages?.includes(asset.id) ? "问题附图" : "结果参考";
+      imageIndex += 1;
+      const relId = `rId${imageIndex}`;
+      imageEntries.push({name:`xl/media/image${imageIndex}.png`,data:await assetToBlob(asset)});
+      drawingRelations.push(`<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${imageIndex}.png"/>`);
+      const gap = 8;
+      const tileWidth = (evidenceWidths[8] * 7 + 5 - 16 - gap * (imageColumns - 1)) / imageColumns;
+      const tileHeight = (evidenceHeight * 4 / 3 - 16 - gap * (imageRows - 1)) / imageRows;
+      drawingAnchors.push(xlsxImageAnchor(relId,imageIndex,8,row-1,`${id} ${role} ${referenceIndex+1}`,{
+        sourceWidth:asset.width,sourceHeight:asset.height,width:tileWidth,height:tileHeight,
+        offsetX:(referenceIndex % imageColumns) * (tileWidth + gap),
+        offsetY:Math.floor(referenceIndex / imageColumns) * (tileHeight + gap)
+      }));
+    }
+    if (descriptionImages.length) links.push({ref:`AE${row}`,location:`'证据预览'!I${row}`});
+    if (references.length > descriptionImages.length) links.push({ref:`AF${row}`,location:`'证据预览'!I${row}`});
   }
   if (!issues.length) {
     rows.push(`<row r="5" ht="40" customHeight="1">${headers.map((_, col) => xlsxInlineCell(xlsxCellRef(col + 1, 5), col === 2 ? "本次没有可导出的问题" : "", 1)).join("")}</row>`);
@@ -2497,7 +2535,7 @@ async function buildXlsxReport(session, issues, assets, exportedAt) {
   const common = { lastRow, countFormula, countText };
   const sheetXml = xlsxWorksheetXml({ ...common, title:"问题清单 · 排期与跟进", headers, widths, rows,
     hint:"橙底列可填写 · 在此筛选、排序和更新进展 · 点击编号查看证据", selected:false,
-    afterData:(issues.length ? `<autoFilter ref="A4:AC${lastRow}"/>` : ""),
+    afterData:(issues.length ? `<autoFilter ref="A4:AF${lastRow}"/>` : ""),
     afterMerge:conditional + validations + (linkXml.length ? `<hyperlinks>${linkXml.join("")}</hyperlinks>` : "") });
   const evidenceSheetXml = xlsxWorksheetXml({ ...common, title:"证据预览 · 先看问题，再看截图", headers:evidenceHeaders, widths:evidenceWidths, rows:evidenceRows,
     hint:"截图与编号一一对应 · 在「问题清单」筛选和维护进展", selected:true,
@@ -2549,10 +2587,12 @@ function xlsxWorksheetXml({ title, headers, widths, rows, lastRow, countFormula,
 function xlsxReportStyles() {
   const font = (size, color, extra = "") => `<font>${extra}<sz val="${size}"/><color rgb="FF${color}"/><name val="Microsoft YaHei"/><family val="2"/></font>`;
   const fonts = [font(11, '28322B'), font(11, 'FFFFFF', '<b/>'), font(16, 'FFFFFF', '<b/>'), font(10, '63705F'), font(11, '984526', '<b/>'), font(11, '315E91', '<u/>')];
+  fonts.push(font(14, '28322B', '<b/>'));
   const fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>', ...['FFFFFF', 'F3F6F1', '303A32', '253229', 'EAF0E5', 'FFF3E8'].map((color) => `<fill><patternFill patternType="solid"><fgColor rgb="FF${color}"/><bgColor indexed="64"/></patternFill></fill>`)];
   const border = `<border>${['left', 'right', 'top', 'bottom'].map((edge) => `<${edge} style="thin"><color rgb="FFBEC8B8"/></${edge}>`).join('')}<diagonal/></border>`;
   const xf = (fontId, fillId, horizontal = 'left', numFmtId = 0, borderId = 1, vertical = 'top') => `<xf numFmtId="${numFmtId}" fontId="${fontId}" fillId="${fillId}" borderId="${borderId}" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1" applyNumberFormat="1"><alignment horizontal="${horizontal}" vertical="${vertical}" wrapText="1" indent="1"/></xf>`;
   const styles = ['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>', xf(0, 2), xf(0, 3), xf(1, 4, 'center', 0, 1, 'center'), xf(2, 5, 'left', 0, 0, 'center'), xf(3, 6, 'left', 0, 0, 'center'), xf(4, 2), xf(4, 3), xf(0, 2, 'right', 164), xf(0, 3, 'right', 164), xf(5, 2), xf(5, 3), xf(0, 7)];
+  styles.push(xf(6, 2), xf(6, 3));
   const dxfs = [['9D3030', 'FCE9E6'], ['915324', 'FFF1D6'], ['286345', 'E4F2E8']].map(([color, fill]) => `<dxf>${font(11, color, '<b/>')}<fill><patternFill patternType="solid"><fgColor rgb="FF${fill}"/><bgColor indexed="64"/></patternFill></fill></dxf>`);
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.00"/></numFmts><fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>${border}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${styles.length}">${styles.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles><dxfs count="${dxfs.length}">${dxfs.join('')}</dxfs></styleSheet>`;
 }
@@ -2563,8 +2603,8 @@ function xlsxImageAnchor(relId, index, column, row, label, size = {}) {
   const sourceHeight = Number(size.sourceHeight) > 0 ? Number(size.sourceHeight) : boxHeight;
   const scale = Math.min(boxWidth / sourceWidth, boxHeight / sourceHeight);
   const width = Math.round(sourceWidth * scale * 9525), height = Math.round(sourceHeight * scale * 9525);
-  const offsetX = Math.round((8 + (boxWidth - sourceWidth * scale) / 2) * 9525);
-  const offsetY = Math.round((8 + (boxHeight - sourceHeight * scale) / 2) * 9525);
+  const offsetX = Math.round((8 + (size.offsetX || 0) + (boxWidth - sourceWidth * scale) / 2) * 9525);
+  const offsetY = Math.round((8 + (size.offsetY || 0) + (boxHeight - sourceHeight * scale) / 2) * 9525);
   return `<xdr:oneCellAnchor><xdr:from><xdr:col>${column}</xdr:col><xdr:colOff>${offsetX}</xdr:colOff><xdr:row>${row}</xdr:row><xdr:rowOff>${offsetY}</xdr:rowOff></xdr:from><xdr:ext cx="${width}" cy="${height}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${index}" name="${xmlAttribute(label)}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`;
 }
 

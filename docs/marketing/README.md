@@ -33,10 +33,10 @@
 
 ## 完整下载
 
-- [在线预览](https://aaabbssbaishuo-code.github.io/UIDelta/press.html)
-- [完整宣传包](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-marketing-kit.zip)：图片、Logo、截图、可编辑源文件、文案和素材索引。
-- [四张 16:9 组图](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-promo-16x9.zip)
-- [三种交付预览](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-delivery-previews.zip)
+- [在线预览](https://tu-dot.github.io/UIDelta/press.html)
+- [完整宣传包](https://tu-dot.github.io/UIDelta/downloads/UIDelta-marketing-kit.zip)：图片、Logo、截图、可编辑源文件、文案和素材索引。
+- [四张 16:9 组图](https://tu-dot.github.io/UIDelta/downloads/UIDelta-promo-16x9.zip)
+- [三种交付预览](https://tu-dot.github.io/UIDelta/downloads/UIDelta-delivery-previews.zip)
 
 ## 维护
 

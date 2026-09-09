@@ -37,7 +37,7 @@ function harness({measurement = true} = {}) {
     elementAnchor:anchor, textContent:element => element.label,
     resolveAnchor:stored => { calls.resolve++; return nodes[stored?.preferredSelector] || null; },
     composedContains:(a,b) => { for(let node=b;node;node=node.parentElement) if(node===a) return true; return false; },
-    hideDeliveryExampleHover(){}, clampPanelToViewport(){},
+    hideDeliveryExampleHover(){}, clampPanelToViewport(){}, renderPins(){},
     renderMeasurementSnapshot:snapshot => { calls.rendered.push(snapshot); editor.measurements.children = snapshot.segments; },
     renderComposer(){ assert.fail('滚动不能重建表单'); }, updateInspector(){ assert.fail('记录期间不能改检查目标'); }
   });

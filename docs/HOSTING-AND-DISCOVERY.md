@@ -6,7 +6,7 @@
 
 部署到 GitHub Pages 后，项目可以使用免费的默认地址：
 
-`https://aaabbssbaishuo-code.github.io/UIDelta/`
+`https://tu-dot.github.io/UIDelta/`
 
 GitHub Pages 允许使用默认 `github.io` 地址，也支持以后绑定自己的域名。自定义域名是可选项。[GitHub Pages 官方说明](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)
 
@@ -24,9 +24,9 @@ Cloudflare Pages 等服务也会提供默认项目子域名，例如 `<project>.
 
 2026-09-04 已完成 GitHub 授权并成功推送。仓库已公开，GitHub Pages 已启用并部署成功：
 
-- [GitHub 仓库](https://github.com/aaabbssbaishuo-code/UIDelta)
-- [产品官网](https://aaabbssbaishuo-code.github.io/UIDelta/)
-- [宣传材料页](https://aaabbssbaishuo-code.github.io/UIDelta/press.html)
-- [完整宣传包](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-marketing-kit.zip)
+- [GitHub 仓库](https://github.com/tu-dot/UIDelta)
+- [产品官网](https://tu-dot.github.io/UIDelta/)
+- [宣传材料页](https://tu-dot.github.io/UIDelta/press.html)
+- [完整宣传包](https://tu-dot.github.io/UIDelta/downloads/UIDelta-marketing-kit.zip)
 
 官网、宣传页、插件下载包与完整宣传包均已通过公开 HTTP 访问验证。公开网站使用免费的 github.io 地址，无需购买域名。搜索引擎是否收录及何时收录仍由搜索引擎决定。

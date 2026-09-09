@@ -18,7 +18,7 @@ Update `extension/manifest.json`, `package.json`, the manifest version expectati
 
 ## GitHub
 
-Recommended repository: `aaabbssbaishuo-code/UIDelta`, public, MIT. Set the repository description from `docs/LAUNCH-COPY.md`; set website to `https://aaabbssbaishuo-code.github.io/UIDelta/`.
+Recommended repository: `tu-dot/UIDelta`, public, MIT. Set the repository description from `docs/LAUNCH-COPY.md`; set website to `https://tu-dot.github.io/UIDelta/`.
 
 Enable GitHub Pages with **GitHub Actions** as its source. `pages.yml` validates and builds before deployment. If automatic Pages configuration is unavailable for the account, select the source once in Settings → Pages. The workflow follows [GitHub's official Pages guidance](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 

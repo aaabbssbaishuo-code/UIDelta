@@ -85,7 +85,7 @@ async function testMessageAndUiContracts() {
   assert.ok(content.includes("this.measurementTarget = to"));
   assert.ok(content.includes("const effectiveMeasurement = regionOverride ? null : measurementOverride"));
   assert.ok(content.includes('this.currentView !== "inspect"'));
-  assert.ok(content.includes('this.pinsLayer.style.display = isInspectView ? "" : "none"'));
+  assert.ok(content.includes('pin.style.pointerEvents = this.browseMode || this.interactionDown ? "none" : "auto"'));
   assert.ok(content.includes("position:fixed;z-index:10"));
   assert.ok(content.includes('event.key === "ArrowLeft" || event.key === "ArrowRight"'));
   assert.ok(content.includes("switchPreview(direction)"));
@@ -141,7 +141,7 @@ async function testMessageAndUiContracts() {
   assert.ok(content.includes("const isSelected = Boolean(element?.isConnected)"));
   assert.ok(!content.includes("element?.isConnected && this.selected === element"));
   assert.ok(content.includes("this.selected = element;\n        this.renderUiEditor"));
-  assert.ok(content.includes('this.uiEditorName.textContent = this.textContent(element) ? "文本" : "元素"'));
+  assert.ok(content.includes('this.uiEditorName.textContent = this.hasTypography(element) ? "文本" : "元素"'));
   assert.ok(content.includes("onModeToolbarPointerMove"));
   assert.ok(content.includes("onModeButtonClick"));
   assert.ok(content.includes('button.addEventListener("click", this.onModeButtonClick)'));

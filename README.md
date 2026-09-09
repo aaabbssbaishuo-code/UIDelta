@@ -1,6 +1,6 @@
 <h1 align="center">UIDelta</h1>
 <p align="center"><strong>看见问题。说清怎么改。</strong></p>
-<p align="center"><a href="README.en.md">English</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/">产品官网</a> · <a href="https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip">免费下载</a> · <a href="LICENSE">MIT 开源</a></p>
+<p align="center"><a href="README.en.md">English</a> · <a href="https://tu-dot.github.io/UIDelta/">产品官网</a> · <a href="https://tu-dot.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip">免费下载</a> · <a href="LICENSE">MIT 开源</a></p>
 
 ![UIDelta：看见问题。说清怎么改。](brand/cover-16x9.png)
 
@@ -54,7 +54,7 @@
 
 当前版本 **v0.9.4 · 开发者预览版**，通过 Chrome 手动加载，尚未上架扩展商店。
 
-1. [下载插件 ZIP](https://aaabbssbaishuo-code.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip)，解压。
+1. [下载插件 ZIP](https://tu-dot.github.io/UIDelta/downloads/UIDelta-v0.9.4.zip)，解压。
 2. 打开 `chrome://extensions`，开启「开发者模式」。点击「加载已解压的扩展程序」，选择包含 `manifest.json` 的 **UIDelta** 文件夹。
 3. 固定插件并刷新目标网页。点击 UIDelta 图标，或按 **Option / Alt + Shift + I** 开始。
 
@@ -98,7 +98,7 @@
 需要 Node.js 22+，项目没有 npm 依赖。
 
 ```sh
-git clone https://github.com/aaabbssbaishuo-code/UIDelta.git
+git clone https://github.com/tu-dot/UIDelta.git
 cd UIDelta
 npm run check
 npm test
@@ -108,6 +108,6 @@ npm start
 
 本地官网：`http://127.0.0.1:4173/`。ZIP 输出至 `release/`，可部署网页输出至 `_site/`。
 
-[提交问题](https://github.com/aaabbssbaishuo-code/UIDelta/issues) · [贡献指南](CONTRIBUTING.md) · [路线图](ROADMAP.md) · [宣传材料与文案](docs/marketing/README.md)
+[提交问题](https://github.com/tu-dot/UIDelta/issues) · [贡献指南](CONTRIBUTING.md) · [路线图](ROADMAP.md) · [宣传材料与文案](docs/marketing/README.md)
 
-作者：[白土墩](https://github.com/aaabbssbaishuo-code) · [MIT License](LICENSE)
+作者：[土墩](https://github.com/tu-dot) · [MIT License](LICENSE)

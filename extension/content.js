@@ -183,9 +183,12 @@
       this.previewPreviousButton = this.shadow.querySelector("[data-action='preview-previous']");
       this.previewNextButton = this.shadow.querySelector("[data-action='preview-next']");
       this.descriptionInput = this.shadow.querySelector(".description-input");
+      this.resultInput = this.shadow.querySelector(".result-input");
+      this.descriptionImages = this.shadow.querySelector(".description-images");
+      this.descriptionImageInput = this.shadow.querySelector(".description-image-input");
       this.evidenceStrip = this.shadow.querySelector(".evidence-strip");
       this.referenceInput = this.shadow.querySelector(".reference-image-input");
-      this.referenceList = this.shadow.querySelector(".reference-list");
+      this.referenceList = this.shadow.querySelector(".result-images");
       this.composerError = this.shadow.querySelector(".composer-error");
       this.saveButton = this.shadow.querySelector("[data-action='save-issue']");
       this.views = new Map(
@@ -194,6 +197,15 @@
     }
 
     bindEvents() {
+      this.onInspectionFocusLeave = this.onInspectionFocusLeave.bind(this);
+      window.addEventListener("blur", this.onInspectionFocusLeave, true);
+      window.addEventListener("focusout", this.onInspectionFocusLeave, true);
+      this.onToolbarPageEvent = this.onToolbarPageEvent.bind(this);
+      // Intercept before document-level outside-click handlers. Re-dispatch
+      // only inside our shadow root so toolbar and form handlers stay local.
+      for (const type of ["pointerdown", "pointerup", "pointercancel", "mousedown", "mouseup", "click", "dblclick", "touchstart", "touchend", "focus", "focusin", "blur", "focusout", "keydown", "keypress", "keyup"]) {
+        window.addEventListener(type, this.onToolbarPageEvent, { capture:true, passive:false });
+      }
       this.onPointerMove = this.onPointerMove.bind(this);
       this.onDocumentPointerDown = this.onDocumentPointerDown.bind(this);
       this.onDocumentPointerUp = this.onDocumentPointerUp.bind(this);
@@ -221,10 +233,12 @@
       window.addEventListener("pointermove", this.onPointerMove, true);
       window.addEventListener("pointerdown", this.onDocumentPointerDown, true);
       window.addEventListener("pointerup", this.onDocumentPointerUp, true);
+      window.addEventListener("pointercancel", () => this.cancelRegionGesture(), true);
       window.addEventListener("click", this.onDocumentClick, true);
-      document.addEventListener("keydown", this.onKeyDown, true);
+      window.addEventListener("keydown", this.onKeyDown, true);
       document.addEventListener("keyup", this.onKeyUp, true);
       window.addEventListener("scroll", this.onLayoutChange, true);
+      document.addEventListener("pointerout", (event) => { if (!event.relatedTarget) this.hidePinTooltip(); }, true);
       window.addEventListener("resize", this.onLayoutChange, true);
       window.addEventListener("blur", this.onWindowBlur);
       window.addEventListener("message", this.onBookmarkMessage);
@@ -260,6 +274,10 @@
         this.composerError.textContent = "";
         this.persistTabContext();
       });
+      this.resultInput?.addEventListener("input", () => this.persistTabContext());
+      this.descriptionInput.addEventListener("paste", (event) => this.pasteComposerImages(event, "description"));
+      this.resultInput?.addEventListener("paste", (event) => this.pasteComposerImages(event, "result"));
+      this.descriptionImageInput?.addEventListener("change", () => this.addReferenceImages(this.descriptionImageInput.files, "description"));
       window.addEventListener("pagehide", () => this.persistTabContext());
       this.issueSearch.addEventListener("input", () => {
         this.applyIssueSearch();
@@ -415,7 +433,7 @@
         "<div class='measurements'></div>",
         "<div class='pins-layer'></div>",
         "<div class='region-box'><i class='region-handle' data-region-handle='nw'></i><i class='region-handle' data-region-handle='ne'></i><i class='region-handle' data-region-handle='sw'></i><i class='region-handle' data-region-handle='se'></i><button class='region-confirm' data-action='record-region'>记录 <kbd>R</kbd></button></div><button class='record-prompt' data-action='record'>＋ 记录 <kbd>R</kbd></button><div class='capture-feedback'><i class='capture-feedback-context'></i><i class='capture-feedback-detail'></i></div>",
-        "<aside class='ui-editor' aria-label='UIDelta UI 本地试改'><header class='ui-editor-header'><div class='ui-editor-heading'><h2 class='ui-editor-title'>选择页面元素</h2><p class='ui-editor-meta'><span class='ui-editor-meta-label'>UI 模式</span> · <span class='ui-editor-status'>本地预览</span></p></div><div class='ui-editor-header-actions'><button class='ui-editor-toggle' data-action='preview-same-type' aria-pressed='false'>同类元素</button><button class='ui-editor-reset' data-action='reset-preview' aria-label='撤销本地试改' title='撤销本地试改'>↶</button></div></header><div class='ui-editor-body'><div class='ui-editor-empty'><strong>悬停页面元素</strong>右侧会显示可编辑属性；所有修改仅在当前页面预览，可随时撤销。</div><div class='ui-editor-content' hidden><section class='ui-editor-section ui-editor-layout-section'><span class='ui-editor-section-title'>布局</span><span class='ui-editor-group-label'>尺寸</span><div class='ui-editor-fields' data-ui-section='dimensions'></div><span class='ui-editor-group-label after-fields'>对齐与间距</span><div class='ui-editor-fields' data-ui-section='layout'></div></section><section class='ui-editor-section ui-editor-spacing-section' aria-label='间距与内边距'><span class='ui-editor-section-title'>间距与内边距</span><div class='ui-editor-fields' data-ui-section='spacing'></div></section><section class='ui-editor-section'><span class='ui-editor-section-title'>外观</span><div class='ui-editor-fields' data-ui-section='appearance'></div></section><section class='ui-editor-section'><span class='ui-editor-section-title'>文字</span><div class='ui-editor-fields' data-ui-section='typography'></div></section><section class='ui-editor-section'><span class='ui-editor-section-title'>填充</span><div class='ui-editor-fields' data-ui-section='fill'></div></section><section class='ui-editor-section ui-editor-text-section' hidden><span class='ui-editor-section-title'>文本内容</span><div class='ui-editor-fields' data-ui-section='text'></div></section><button class='ui-editor-advanced-action' data-action='toggle-preview-properties'>＋ 显示高级属性</button><section class='ui-editor-section ui-editor-advanced-section' hidden><span class='ui-editor-section-title'>高级属性</span><div class='ui-editor-fields' data-ui-section='advanced'></div></section><div class='ui-editor-delta'></div><div class='ui-editor-candidates'></div><div class='ui-editor-footer'><button class='secondary-button' data-action='reset-preview'>撤销预览</button><button class='primary-button' data-action='record' disabled>加入走查</button></div></div></div></aside>",
+        "<aside class='ui-editor' aria-label='UIDelta UI 本地试改'><header class='ui-editor-header'><div class='ui-editor-heading'><h2 class='ui-editor-title'>选择页面元素</h2><p class='ui-editor-meta'><span class='ui-editor-meta-label'>UI 模式</span> · <span class='ui-editor-status'>本地预览</span></p></div><div class='ui-editor-header-actions'><button class='ui-editor-toggle' data-action='preview-same-type' aria-pressed='false'>同类元素</button><button class='ui-editor-reset' data-action='reset-preview' aria-label='撤销本地试改' title='撤销本地试改'>↶</button></div></header><div class='ui-editor-body'><div class='ui-editor-empty'><strong>悬停页面元素</strong>右侧会显示可编辑属性；所有修改仅在当前页面预览，可随时撤销。</div><div class='ui-editor-content' hidden><section class='ui-editor-section ui-editor-layout-section'><span class='ui-editor-section-title'>布局</span><span class='ui-editor-group-label'>尺寸</span><div class='ui-editor-fields' data-ui-section='dimensions'></div><span class='ui-editor-group-label after-fields'>对齐与间距</span><div class='ui-editor-fields' data-ui-section='layout'></div></section><section class='ui-editor-section ui-editor-spacing-section' aria-label='间距与内边距'><span class='ui-editor-section-title'>间距与内边距</span><div class='ui-editor-fields' data-ui-section='spacing'></div></section><section class='ui-editor-section'><span class='ui-editor-section-title'>外观</span><div class='ui-editor-fields' data-ui-section='appearance'></div></section><section class='ui-editor-section'><span class='ui-editor-section-title'>文字</span><div class='ui-editor-fields' data-ui-section='typography'></div></section><section class='ui-editor-section'><span class='ui-editor-section-title'>填充</span><div class='ui-editor-fields' data-ui-section='fill'></div></section><section class='ui-editor-section'><span class='ui-editor-section-title'>边框</span><div class='ui-editor-fields' data-ui-section='stroke'></div></section><section class='ui-editor-section ui-editor-text-section' hidden><span class='ui-editor-section-title'>文本内容</span><div class='ui-editor-fields' data-ui-section='text'></div></section><button class='ui-editor-advanced-action' data-action='toggle-preview-properties'>＋ 显示高级属性</button><section class='ui-editor-section ui-editor-advanced-section' hidden><span class='ui-editor-section-title'>高级属性</span><div class='ui-editor-fields' data-ui-section='advanced'></div></section><div class='ui-editor-delta'></div><div class='ui-editor-candidates'></div><div class='ui-editor-footer'><button class='secondary-button' data-action='reset-preview'>撤销预览</button><button class='primary-button' data-action='record' disabled>加入走查</button></div></div></div></aside>",
         "<aside class='panel' aria-label='UIDelta 走查工具'>",
         "  <header class='panel-header'>",
         "    <span class='drag-grip' aria-hidden='true'>⋮⋮</span><span class='status-dot'></span><strong class='brand'>UIDelta</strong><span class='panel-mode'>Record</span><span class='header-spacer'></span>",
@@ -449,9 +467,10 @@
         "    <section class='view composer-view' data-view='composer'>",
         "      <div class='composer-scroll'>",
         "      <div class='composer-head'><div class='composer-topline'><span class='composer-id'>UI-001</span><button class='capture-state' data-action='retry-capture' type='button' disabled>正在保存证据</button></div><p class='composer-element'>未选择元素</p><p class='composer-compare'>未绑定设计</p><div class='composer-diffs' hidden></div></div>",
-        "      <div class='evidence-strip' aria-label='已截取证据'></div><div class='field'><span class='field-label' id='uidelta-description-label'>问题描述</span><textarea class='description-input' aria-labelledby='uidelta-description-label' aria-describedby='uidelta-composer-error' autofocus placeholder='例如：按钮宽度应为 110px，目前显得过宽。'></textarea><label class='description-upload'>▧ 插入参考图片<input class='reference-image-input' type='file' accept='image/*' multiple></label><div class='reference-list'></div></div>",
+        "      <div class='evidence-strip' aria-label='已截取证据'></div><div class='field'><span class='field-label' id='uidelta-description-label'>问题描述</span><div class='rich-input'><textarea class='description-input' aria-labelledby='uidelta-description-label' aria-describedby='uidelta-composer-error' placeholder='描述发现的问题，也可粘贴图片'></textarea><div class='reference-list description-images'></div><label class='description-upload'>添加图片<input class='description-image-input' type='file' accept='image/*' multiple></label></div></div>",
+        "      <div class='field'><span class='field-label' id='uidelta-result-label'>结果参考</span><div class='rich-input'><textarea class='description-input result-input' aria-labelledby='uidelta-result-label' placeholder='描述期望效果，也可粘贴参考图'></textarea><div class='reference-list result-images'></div><label class='description-upload'>添加图片<input class='reference-image-input' type='file' accept='image/*' multiple></label></div></div>",
         this.composerChoicesMarkup(),
-        "      <p class='composer-error' id='uidelta-composer-error' role='alert'></p></div><div class='composer-actions'><button class='ghost-button' data-action='cancel-composer'>返回检查</button><button class='primary-button' data-action='save-issue'>保存并继续</button></div>",
+        "      <p class='composer-error' id='uidelta-composer-error' role='alert'></p></div><div class='composer-actions'><button class='ghost-button' data-action='cancel-composer'>返回走查</button><button class='primary-button' data-action='save-issue'>保存并继续</button></div>",
         "    </section>",
         "    <section class='view inbox-view' data-view='inbox'>",
         "      <div class='inbox-head'>",
@@ -684,6 +703,11 @@
 
     reviewWorkflowStyles() {
       return `
+        .tooltip[data-pin-issue-id] { max-width:min(340px,calc(100vw - 16px)); max-height:calc(100vh - 32px); overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; text-overflow:unset; font:500 12px/1.6 var(--ud-font); padding:10px 12px; pointer-events:auto; }
+        .pin { box-sizing:border-box; display:grid; place-items:center; min-width:0; min-height:0; padding:0; border:2px solid #fff; border-radius:50%; font:650 11px/1 var(--ud-font); font-variant-numeric:tabular-nums; letter-spacing:0; text-align:center; box-shadow:0 1px 2px rgba(22,27,20,.16),0 3px 8px rgba(22,27,20,.2); transition:transform 140ms cubic-bezier(.23,1,.32,1); }
+        .pin:focus-visible { outline:2px solid var(--ud-accent); outline-offset:2px; }
+        .pin:active { transform:scale(.97); }
+        @media (prefers-reduced-motion:reduce) { .pin { transition:none; } }
         .panel:has(.composer-view.active,.inbox-view.active) .panel-body { height:calc(100% - 48px); max-height:none; overflow:hidden; }
         .composer-view.active { display:flex; flex-direction:column; height:100%; min-height:0; padding:0; }
         .composer-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:12px 14px; scrollbar-width:thin; }
@@ -705,6 +729,12 @@
         .composer-view .field-label { margin-bottom:6px; font-size:11px; color:var(--ud-text-secondary); }
         .composer-view .description-input { min-height:86px; height:86px; padding:8px; border-radius:7px; font:12px/1.55 var(--ud-font); }
         .composer-view .description-input::placeholder { color:var(--ud-text-muted); }
+        .composer-view .rich-input { border:1px solid var(--ud-border); border-radius:7px; background:var(--ud-elevated); padding-bottom:6px; overflow:hidden; }
+        .composer-view .rich-input:focus-within { border-color:var(--ud-focus); box-shadow:0 0 0 2px var(--ud-focus-soft); }
+        .composer-view .rich-input textarea { border:0!important; box-shadow:none!important; outline:0!important; resize:vertical; }
+        .composer-view .result-input { min-height:64px; height:64px; }
+        .composer-view .rich-input .reference-list { padding:0 6px 6px; }
+        .composer-view .rich-input .description-upload { margin:0 6px; min-height:22px; height:22px; padding:0 4px; border:0; background:transparent; font-weight:400; }
         .composer-view .description-upload { min-height:28px; height:28px; margin-top:8px; padding:0 8px; border-radius:6px; font-size:11px; }
         .composer-view .description-upload:focus-within { outline:2px solid var(--ud-focus); outline-offset:2px; }
         .composer-choices { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; padding:8px 0 0; }
@@ -1012,6 +1042,7 @@
       const composer = this.composer;
       if (!composer?.issue) return null;
       if (composer.formReady) composer.issue.description = this.descriptionInput?.value ?? composer.issue.description ?? "";
+      if (composer.formReady) composer.issue.resultReference = this.resultInput?.value ?? composer.issue.resultReference ?? "";
       return {
         issue: structuredClone(composer.issue),
         mode: composer.mode, returnView: composer.returnView,
@@ -1113,7 +1144,7 @@
       this.currentView = name;
       const isInspectView = name === "inspect" && !this.browseMode;
       const preserveComposerMeasurement = name === "composer" && !this.browseMode && Boolean(this.composer);
-      this.pinsLayer.style.display = isInspectView ? "" : "none";
+      this.renderPins();
       this.recordPrompt?.classList.remove("visible");
       if (!isInspectView) this.regionBox.style.display = "none";
       if (!isInspectView) {
@@ -1151,6 +1182,7 @@
     }
 
     syncModeSurfaces() {
+      this.renderPins();
       const inspecting = this.enabled && !this.browseMode && this.isSessionActive() && this.currentView === "inspect";
       const uiEditing = inspecting && this.inspectMode === "ui";
       const annotationInspecting = inspecting && this.inspectMode === "annotation";
@@ -1170,7 +1202,6 @@
         this.panel.style.display = "none";
         this.dock.style.display = "none";
         this.uiEditor?.classList.remove("visible");
-        this.pinsLayer.style.display = "none";
         this.clearVisuals();
         return;
       }
@@ -1308,6 +1339,15 @@
     }
 
     onPointerMove(event) {
+      // Finish canvas gestures before hover/UI hit testing: the growing box
+      // itself (or a pin/toolbar) may now be underneath the pointer.
+      if (this.regionSelection || this.regionEdit) {
+        if (event.buttons === 0) { this.cancelRegionGesture(); return; }
+        if (this.regionSelection) this.updateRegionSelection(event.clientX, event.clientY);
+        else this.updateRegionEdit(event.clientX, event.clientY);
+        return;
+      }
+      if (this.updatePinHover(event)) return;
       if (this.browseMode) return;
       if (this.regionEdit) {
         this.updateRegionEdit(event.clientX, event.clientY);
@@ -1429,7 +1469,12 @@
     }
 
     onKeyDown(event) {
-      if (!this.enabled || this.browseMode || event.isComposing || event.keyCode === 229) return;
+      // In inspection mode the page input keeps focus for its focus ring,
+      // but physical R belongs to the inspector, including an IME's 229 event.
+      const pageRecordKey = event.code === "KeyR" && !this.isUiEvent(event)
+        && this.currentView === "inspect" && !this.interactionDown
+        && Boolean(this.pendingRegionRect || this.selected?.isConnected || this.hovered?.isConnected);
+      if (!this.enabled || this.browseMode || ((event.isComposing || event.keyCode === 229) && !pageRecordKey)) return;
       if (event.key === "Escape" && (this.deliveryHoverState || this.deliveryHoverOpenTimer)) {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -1467,8 +1512,8 @@
         && !event.altKey
         && !event.shiftKey
         && !event.repeat
-        && !event.isComposing
-        && !typing
+        && (!event.isComposing || pageRecordKey)
+        && (!typing || pageRecordKey)
         && !this.interactionDown
         && canRecordFromCurrentState
         && this.isSessionActive();
@@ -1526,6 +1571,8 @@
     }
 
     onWindowBlur() {
+      this.cancelRegionGesture();
+      this.hidePinTooltip();
       this.hideDeliveryExampleHover();
       if (!this.enabled || this.browseMode) return;
       if (this.interactionDown) this.setInteractionMode(false);
@@ -1543,7 +1590,9 @@
       }
     }
 
-    onLayoutChange() {
+    onLayoutChange(event) {
+      if (event?.target === this.tooltip && this.tooltip?.dataset?.pinIssueId) return;
+      this.hidePinTooltip();
       this.hideDeliveryExampleHover();
       if (!this.enabled) return;
       if (this.currentView === "composer") {
@@ -1564,7 +1613,7 @@
           this.renderHover(this.hovered);
         }
       }
-      if (this.currentView === "inspect" && !this.interactionDown) this.renderPins();
+      this.renderPins();
       this.clampPanelToViewport();
     }
 
@@ -1586,7 +1635,7 @@
         this.selectedBox.style.display = "none";
         this.tooltip.style.display = "none";
         this.measurements.replaceChildren();
-        this.pinsLayer.style.display = "none";
+        this.renderPins();
       } else if (this.selected) {
         this.pinsLayer.style.display = "";
         this.renderPins();
@@ -1607,6 +1656,57 @@
 
     isUiEvent(event) {
       return event.composedPath().includes(this.host);
+    }
+
+    onToolbarPageEvent(event) {
+      if (!this.enabled) return;
+      const path = event.composedPath();
+      if (!path.includes(this.host)) return;
+      const target = path[0];
+      if (!target?.dispatchEvent) return;
+      // The isolation listener runs before the document gesture listener.
+      // A release over our box must still terminate the active canvas drag.
+      if (event.type === "pointerup" && (this.regionSelection || this.regionEdit)) {
+        this.onDocumentPointerUp(event);
+      }
+      if (event.type === "pointercancel") this.cancelRegionGesture();
+      const keyboard = event.type.startsWith("key");
+      if (keyboard) {
+        // Keep host modal Tab/Escape traps out, while retaining our shortcuts
+        // and the original trusted event's typing / native focus default.
+        event.stopImmediatePropagation();
+        if (event.type === "keydown") this.onKeyDown(event);
+        if (event.type === "keyup") this.onKeyUp(event);
+        if (event.defaultPrevented) return;
+      }
+      const toolbar = path.some((node) => node === this.modeToolbar || node?.dataset?.mode);
+      // Native inputs retain their trusted click/default action (caret,
+      // checkbox pre-activation, file picker). Never activate them twice.
+      if (event.type === "click" && target.matches?.("input,textarea,select,label")) {
+        event.stopImmediatePropagation();
+        if (target.matches(".issue-select")) this.toggleDeliveryIssue(target.dataset.deliveryIssueId, target.checked);
+        return;
+      }
+      // Prevent the pointer default from blurring the page's date input.
+      // Stopping only the shadow-root bubble is too late for document capture.
+      // Cancelling touchstart suppresses its compatibility click entirely.
+      // Pointerdown already protects focus; keep the native touch activation.
+      if (toolbar && !keyboard && !event.type.startsWith("touch") && !event.type.includes("focus") && event.type !== "blur") event.preventDefault();
+      event.stopImmediatePropagation();
+      const init = { bubbles:true, cancelable:true, composed:false, view:window };
+      for (const key of ["key", "code", "keyCode", "which", "location", "repeat", "isComposing", "detail", "screenX", "screenY", "clientX", "clientY", "button", "buttons", "ctrlKey", "shiftKey", "altKey", "metaKey", "relatedTarget", "pointerId", "pointerType", "isPrimary", "width", "height", "pressure", "tiltX", "tiltY", "touches", "targetTouches", "changedTouches"]) {
+        if (event[key] !== undefined) init[key] = event[key];
+      }
+      if (!target.dispatchEvent(new event.constructor(event.type, init))) event.preventDefault();
+    }
+
+    onInspectionFocusLeave(event) {
+      if (!this.enabled || this.browseMode || this.isUiEvent(event)) return;
+      // Typing in the issue form is an inspector action, not a dismissal of
+      // the page's focused popup. Do not suppress page-to-page focus changes.
+      if (event.relatedTarget === this.host || (event.relatedTarget && this.shadow.contains(event.relatedTarget))) {
+        event.stopImmediatePropagation();
+      }
     }
 
     isTypingTarget(event) {
@@ -1635,7 +1735,58 @@
           if (layers[selectedIndex + 1]) return layers[selectedIndex + 1];
         }
       }
+      if (this.isTransparentViewportShell(target) && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+        return this.targetBelowViewportShell(target, event.clientX, event.clientY) || target;
+      }
       return target;
+    }
+
+    isTransparentViewportShell(element) {
+      if (!element || element === this.host || !/^(DIV|SECTION|ASIDE)$/i.test(element.tagName || "")) return false;
+      const rect = element.getBoundingClientRect();
+      if (rect.width < window.innerWidth * .9 || rect.height < window.innerHeight * .9) return false;
+      const style = window.getComputedStyle(element);
+      if (!/^(fixed|absolute)$/.test(style.position)) return false;
+      if (style.backgroundImage !== "none" || style.backdropFilter && style.backdropFilter !== "none") return false;
+      const color = style.backgroundColor.replace(/\s+/g, "");
+      if (color !== "transparent" && color !== "rgba(0,0,0,0)" && !/\/0%?\)$/.test(color)) return false;
+      if (this.visibleBoxShadows(style.boxShadow)) return false;
+      if (["Top","Right","Bottom","Left"].some(side => parseFloat(style[`border${side}Width`]) > 0)) return false;
+      // A portal may contain a small search box. Its empty full-screen shell
+      // is not the search box; actual child hits still use the regular path.
+      return !Array.from(element.childNodes).some(node => node.nodeType === 3 && node.textContent.trim());
+    }
+
+    targetBelowViewportShell(shell, x, y) {
+      const restores = [];
+      const skipped = new Set();
+      const override = (node, value) => {
+        const before = node.style.getPropertyValue("pointer-events"), priority = node.style.getPropertyPriority("pointer-events");
+        node.style.setProperty("pointer-events", value, "important");
+        restores.push(() => { if (before) node.style.setProperty("pointer-events", before, priority); else node.style.removeProperty("pointer-events"); });
+      };
+      try {
+        // Some modal libraries set body pointer-events:none. Restore hit
+        // testing only synchronously; no page click is dispatched underneath.
+        for (const root of [document.documentElement, document.body]) {
+          if (root && window.getComputedStyle(root).pointerEvents === "none") override(root, "auto");
+        }
+        let current = shell;
+        for (let depth = 0; current && depth < 8; depth++) {
+          skipped.add(current);
+          override(current, "none");
+          const next = this.deepElementsFromPoint(x,y).find(node => node !== this.host
+            && node !== document.body && node !== document.documentElement
+            && !node.closest("[" + ROOT_ATTRIBUTE + "]") && !skipped.has(node));
+          if (!next) return null;
+          if (!this.isTransparentViewportShell(next)) return next;
+          if (next === current) return null;
+          current = next;
+        }
+        return null;
+      } finally {
+        for (const restore of restores.reverse()) restore();
+      }
     }
 
     deepElementsFromPoint(x, y) {
@@ -1712,6 +1863,7 @@
       this.lastMeasurementSource = null;
       this.lastMeasurementTarget = null;
       this.renderMeasurementSnapshot(snapshot);
+      this.showTooltip(to, this.pierceDown ? "穿透测距" : "悬停测距");
       this.updateRecordButton(true);
       this.showRecordPrompt(to, true);
     }
@@ -1787,7 +1939,7 @@
       }));
       const protectedRects = [target];
       if (this.tooltip.style.display !== "none") protectedRects.push(this.tooltip.getBoundingClientRect());
-      for (const marker of this.measurements.children) {
+      for (const marker of [...this.measurements.children, ...Array.from(this.measurements.querySelectorAll?.(".badge") || [])]) {
         const rect = marker.getBoundingClientRect();
         if (rect.width || rect.height) protectedRects.push(rect);
       }
@@ -1796,13 +1948,25 @@
         return candidate.left < rect.right + padding && candidate.left + width > rect.left - padding
           && candidate.top < rect.bottom + padding && candidate.top + height > rect.top - padding;
       };
-      const placement = candidates.find((candidate) => !protectedRects.some((rect) => overlaps(candidate, rect))) || candidates[0];
+      let placement = candidates.find((candidate) => !protectedRects.some((rect) => overlaps(candidate, rect))) || candidates[0];
+      if (target.width <= 80 || target.height <= 80) {
+        const expanded = [...candidates];
+        for (const distance of [36,64,96,132,176]) expanded.push(
+          {left:target.right+distance,top:target.top},
+          {left:target.left-width-distance,top:target.top},
+          {left:target.left,top:target.bottom+distance},
+          {left:target.left,top:target.top-height-distance});
+        placement = this.placeMeasurementOverlay(width,height,expanded,protectedRects);
+      }
       this.recordPrompt.style.left = placement.left + "px";
       this.recordPrompt.style.top = placement.top + "px";
       this.recordPrompt.style.visibility = "";
     }
 
     startRegionSelection(x, y) {
+      this.regionEdit = null;
+      this.pendingRegionRect = null;
+      this.regionBox.classList.remove("editable");
       this.regionSelection = { startX: x, startY: y, endX: x, endY: y };
       this.updateRegionSelection(x, y);
     }
@@ -1820,10 +1984,12 @@
     }
 
     finishRegionSelection(x, y) {
+      if (!this.regionSelection) return;
       this.updateRegionSelection(x, y);
       const rect = this.regionRectFromSelection(this.regionSelection);
       this.regionSelection = null;
       if (rect.width < 12 || rect.height < 12) {
+        this.regionBox.style.display = "none";
         this.showToast("框选区域太小，请拖拽一个需要取证的范围");
         return;
       }
@@ -1844,6 +2010,7 @@
 
     beginRegionEdit(event) {
       if (!this.pendingRegionRect || event.button !== 0) return;
+      if (event.target.closest?.("[data-action='record-region']")) return;
       event.preventDefault();
       event.stopPropagation();
       this.regionEdit = {
@@ -1880,6 +2047,15 @@
     }
 
     endRegionEdit() {
+      this.regionEdit = null;
+    }
+
+    cancelRegionGesture() {
+      if (this.regionSelection) {
+        this.regionSelection = null;
+        this.regionBox.classList.remove("editable");
+        this.regionBox.style.display = "none";
+      }
       this.regionEdit = null;
     }
 
@@ -2190,6 +2366,53 @@
         this.measurements.appendChild(badge);
       }
       if (snapshot.overlap && snapshot.fromRect && snapshot.toRect) this.drawOverlapBadge(snapshot.fromRect, snapshot.toRect);
+      this.layoutSmallMeasurementLabels(snapshot);
+    }
+
+    placeMeasurementOverlay(width, height, candidates, obstacles) {
+      const area = (box, other) => Math.max(0, Math.min(box.right, other.right + 5) - Math.max(box.left, other.left - 5))
+        * Math.max(0, Math.min(box.bottom, other.bottom + 5) - Math.max(box.top, other.top - 5));
+      let best, score = Infinity;
+      for (const candidate of candidates) {
+        const left = this.clamp(candidate.left, 4, Math.max(4, window.innerWidth - width - 4));
+        const top = this.clamp(candidate.top, 4, Math.max(4, window.innerHeight - height - 4));
+        const box = { left, top, right:left + width, bottom:top + height, width, height };
+        const overlap = obstacles.reduce((sum, other) => sum + area(box, other), 0);
+        if (overlap < score) { best = box; score = overlap; }
+        if (!overlap) break;
+      }
+      return best;
+    }
+
+    layoutSmallMeasurementLabels(snapshot) {
+      const target = snapshot.toRect;
+      if (!target || (target.width > 80 && target.height > 80)) return;
+      const badges = Array.from(this.measurements.querySelectorAll?.(".badge") || []);
+      const obstacles = [target];
+      if (snapshot.fromRect && snapshot.fromRect.width <= 80 && snapshot.fromRect.height <= 80) obstacles.push(snapshot.fromRect);
+      for (const badge of badges) {
+        const original = badge.getBoundingClientRect();
+        const x = original.left + original.width / 2, y = original.top + original.height / 2;
+        const width = original.width, height = original.height;
+        const sides = (gap) => [
+          {left:x - width / 2, top:target.top - height - gap},
+          {left:x - width / 2, top:target.bottom + gap},
+          {left:target.left - width - gap, top:y - height / 2},
+          {left:target.right + gap, top:y - height / 2}
+        ].sort((a,b) => Math.hypot(a.left + width/2-x,a.top + height/2-y) - Math.hypot(b.left + width/2-x,b.top + height/2-y));
+        const placement = this.placeMeasurementOverlay(width,height,[...sides(10),...sides(36),...sides(64)],obstacles);
+        badge.style.position = "fixed";
+        badge.style.transform = "none";
+        badge.style.left = placement.left + "px";
+        badge.style.top = placement.top + "px";
+        obstacles.push(placement);
+        // Keep the measurement endpoints untouched; only its label moves.
+        const endX = this.clamp(x, placement.left, placement.right), endY = this.clamp(y, placement.top, placement.bottom);
+        const leader = document.createElement("i");
+        leader.className = "measurement-leader";
+        leader.style.cssText = `position:fixed;pointer-events:none;left:${x}px;top:${y}px;width:${Math.hypot(endX-x,endY-y)}px;height:0;border-top:1px dotted ${this.inspectMode === "ui" ? "#39d8a2" : "#ff667d"};transform-origin:0 0;transform:rotate(${Math.atan2(endY-y,endX-x)}rad)`;
+        this.measurements.prepend(leader);
+      }
     }
 
     drawContainmentMeasurements(outer, inner) {
@@ -2311,11 +2534,23 @@
         : rect.bottom + 8;
       this.tooltip.style.left = left + "px";
       this.tooltip.style.top = top + "px";
+      if (rect.width <= 80 || rect.height <= 80) {
+        const width = this.tooltip.offsetWidth, height = this.tooltip.offsetHeight;
+        const obstacles = [rect, ...Array.from(this.measurements.querySelectorAll?.(".badge") || []).map(node => node.getBoundingClientRect())];
+        const candidates = [{left,top}];
+        for (const gap of [12,36,64,96]) candidates.push(
+          {left:rect.left,top:rect.bottom+gap}, {left:rect.left,top:rect.top-height-gap},
+          {left:rect.right+gap,top:rect.top}, {left:rect.left-width-gap,top:rect.top});
+        const placement = this.placeMeasurementOverlay(width,height,candidates,obstacles);
+        this.tooltip.style.left = placement.left + "px";
+        this.tooltip.style.top = placement.top + "px";
+      }
     }
 
     showPinTooltip(pin, issue) {
       const rect = pin.getBoundingClientRect();
-      this.tooltip.replaceChildren(document.createTextNode(issue.displayId + " · " + (issue.title || "已记录问题")));
+      this.tooltip.dataset.pinIssueId = issue.id;
+      this.tooltip.replaceChildren(document.createTextNode(issue.displayId + "\n" + (issue.description || issue.title || "已记录问题")));
       this.tooltip.style.display = "block";
       const left = this.clamp(rect.left, 8, Math.max(8, window.innerWidth - this.tooltip.offsetWidth - 8));
       const top = rect.bottom + 8 + this.tooltip.offsetHeight > window.innerHeight
@@ -2323,6 +2558,34 @@
         : rect.bottom + 8;
       this.tooltip.style.left = left + "px";
       this.tooltip.style.top = top + "px";
+    }
+
+    hidePinTooltip() {
+      if (!this.tooltip?.dataset?.pinIssueId) return;
+      delete this.tooltip.dataset.pinIssueId;
+      this.tooltip.style.display = "none";
+    }
+
+    updatePinHover(event) {
+      if (!this.enabled || this.captureOverlayStyles || event.pointerType === "touch") { this.hidePinTooltip(); return false; }
+      if (!this.pinsLayer?.children?.length || this.pinsLayer.style.display === "none") { this.hidePinTooltip(); return false; }
+      const path = event.composedPath();
+      if (this.tooltip?.dataset?.pinIssueId && path.includes(this.tooltip)) return true;
+      const activePin = this.tooltip?.dataset?.pinIssueId && Array.from(this.pinsLayer.children).find((node) => node.dataset.issueId === this.tooltip.dataset.pinIssueId);
+      if (activePin) {
+        const anchor = activePin.getBoundingClientRect(), tip = this.tooltip.getBoundingClientRect();
+        const inGap = tip.top >= anchor.bottom ? event.clientY >= anchor.bottom && event.clientY <= tip.top : event.clientY >= tip.bottom && event.clientY <= anchor.top;
+        if (inGap && event.clientX >= anchor.left && event.clientX <= anchor.right) return true;
+      }
+      const otherSurface = path.includes(this.host) && !path.some((node) => node?.dataset?.action === "open-pin");
+      const pin = !otherSurface && Array.from(this.pinsLayer?.children || []).find((node) => {
+        const rect = node.getBoundingClientRect();
+        return Math.hypot(event.clientX - (rect.left + rect.width / 2), event.clientY - (rect.top + rect.height / 2)) <= rect.width / 2;
+      });
+      const issue = pin && this.issues.find((item) => item.id === pin.dataset.issueId);
+      if (!issue) { this.hidePinTooltip(); return false; }
+      this.showPinTooltip(pin, issue);
+      return true;
     }
 
     renderCompareState() {
@@ -2532,7 +2795,7 @@
         <dl class="layer-property-list">
           ${row("layout", "布局")}${row("direction", "方向")}${row("alignment", "对齐")}${row("gap", "间距")}
           ${row("font", "字体")}${row("font-size", "字号")}${row("line-height", "行高")}${row("font-weight", "字重")}
-          ${row("text-color", "文字色")}${row("background", "背景")}${row("background-image", "背景图")}
+          ${row("text-color", "文字色")}${row("placeholder-color", "占位色")}${row("background", "背景")}${row("background-image", "背景图")}
           ${row("opacity", "透明度")}${row("radius", "圆角")}${row("border", "边框")}${row("shadow", "阴影")}
         </dl>
         <div class="layer-box-model" role="group" aria-labelledby="uidelta-layer-properties-title" aria-label="盒模型：外边距、边框、内边距与内容尺寸，单位为 CSS 像素">
@@ -2687,7 +2950,7 @@
       const alignment = layout ? [style.justifyContent, style.alignItems].filter(Boolean).join(" / ") : "";
       row("alignment", alignment, `justify-content: ${style.justifyContent}; align-items: ${style.alignItems}`);
       row("gap", layout && style.gap && style.gap !== "normal" ? style.gap : "", style.gap);
-      const hasText = Boolean(this.textContent(element));
+      const hasText = this.hasTypography(element);
       row("font", hasText ? style.fontFamily : "");
       const fonts = hasText ? this.fontFamilyNames(style.fontFamily) : [];
       if (fonts.length > 1) {
@@ -2708,6 +2971,9 @@
       row("line-height", hasText ? style.lineHeight : "");
       row("font-weight", hasText ? style.fontWeight : "");
       row("text-color", hasText ? style.color : "", style.color, style.color);
+      const placeholder = /^(INPUT|TEXTAREA)$/i.test(element.tagName || "") && element.placeholder && !element.value
+        ? window.getComputedStyle(element, "::placeholder") : null;
+      row("placeholder-color", placeholder?.color || "", placeholder ? `占位文字颜色：${placeholder.color}；透明度：${placeholder.opacity}` : "", placeholder?.color || "");
       row("background", style.backgroundColor, style.backgroundColor, style.backgroundColor);
       row("background-image", style.backgroundImage && style.backgroundImage !== "none" ? style.backgroundImage : "");
       const opacity = Number.parseFloat(style.opacity);
@@ -2720,7 +2986,39 @@
       const borderText = borderValues.every((value) => value === borderValues[0]) ? borderValues[0]
         : borderValues.map((value, index) => value ? `${sideLabels[index]}：${value}` : "").filter(Boolean).join("；");
       row("border", borderText);
-      row("shadow", style.boxShadow && style.boxShadow !== "none" ? style.boxShadow : "");
+      row("shadow", this.visibleBoxShadows(style.boxShadow));
+    }
+
+    hasTypography(element) {
+      if (!element) return false;
+      if (/^(TEXTAREA|SELECT)$/i.test(element.tagName || "")) return true;
+      if (/^INPUT$/i.test(element.tagName || "")) return !/^(hidden|checkbox|radio|range|color|file|image)$/i.test(element.type || "text");
+      return Boolean(this.textContent(element));
+    }
+
+    visibleBoxShadows(value) {
+      if (!value || value === "none") return "";
+      // A comma within rgba()/oklch() is not a new shadow layer.
+      const layers = []; let depth = 0, start = 0;
+      for (let i = 0; i < value.length; i++) {
+        if (value[i] === "(") depth++;
+        else if (value[i] === ")") depth--;
+        else if (value[i] === "," && depth === 0) { layers.push(value.slice(start,i)); start = i+1; }
+      }
+      layers.push(value.slice(start));
+      return layers.map(layer => layer.trim()).filter(layer => {
+        if (/\btransparent\b/i.test(layer)) return false;
+        const color = layer.match(/(?:rgba?|hsla?|oklch|oklab|lch|lab|color)\([^)]*\)/i)?.[0];
+        if (color) {
+          const body = color.slice(color.indexOf("(")+1,-1);
+          const alpha = body.includes("/") ? body.split("/").at(-1).trim()
+            : body.split(",").length === 4 ? body.split(",").at(-1).trim() : null;
+          if (alpha !== null && Number.parseFloat(alpha) === 0) return false;
+        }
+        const dimensions = layer.replace(color || /$^/, "").match(/[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?(?:px)?/gi) || [];
+        // Zero offset + zero blur + zero spread has no visible shadow.
+        return dimensions.some(number => Number.parseFloat(number) !== 0);
+      }).join(", ");
     }
 
     updateInspector(element, stateLabel, options = {}) {
@@ -2778,6 +3076,10 @@
         before: {
           color: style.color,
           backgroundColor: style.backgroundColor,
+          backgroundImage: style.backgroundImage,
+          borderColor: style.borderColor,
+          borderWidth: style.borderWidth,
+          borderStyle: style.borderStyle,
           display: style.display,
           flexDirection: style.flexDirection,
           justifyContent: style.justifyContent,
@@ -2807,6 +3109,10 @@
         inline: {
           color: element.style.color,
           backgroundColor: element.style.backgroundColor,
+          backgroundImage: element.style.backgroundImage,
+          borderColor: element.style.borderColor,
+          borderWidth: element.style.borderWidth,
+          borderStyle: element.style.borderStyle,
           display: element.style.display,
           flexDirection: element.style.flexDirection,
           justifyContent: element.style.justifyContent,
@@ -2859,7 +3165,7 @@
         wrapper.className = "preview-field";
         wrapper.textContent = label;
         const input = document.createElement("input");
-        const isColor = property === "color" || property === "backgroundColor";
+        const isColor = property === "color" || property === "backgroundColor" || property === "borderColor";
         input.type = isColor ? "color" : "text";
         const currentValue = this.previewState.changes[property] ?? this.previewState.before[property] ?? "";
         input.value = isColor ? this.previewColorValue(currentValue) : currentValue;
@@ -2892,7 +3198,7 @@
       }
       const state = this.ensurePreviewState(element);
       if (!state) return;
-      this.uiEditorName.textContent = this.textContent(element) ? "文本" : "元素";
+      this.uiEditorName.textContent = this.hasTypography(element) ? "文本" : "元素";
       if (this.uiEditorMetaLabel) this.uiEditorMetaLabel.textContent = this.elementName(element) + " · " + this.round(element.getBoundingClientRect().width) + " × " + this.round(element.getBoundingClientRect().height);
       if (preserve && state.element === element) {
         this.updatePreviewSummary();
@@ -2907,7 +3213,8 @@
         spacing: [["gap", "间距"], ["paddingTop", "上内边距"], ["paddingRight", "右内边距"], ["paddingBottom", "下内边距"], ["paddingLeft", "左内边距"]],
         appearance: [["opacity", "透明度", "opacity"], ["borderRadius", "圆角", "numeric-radius"]],
         typography: [["fontFamily", "字体", "wide"], ["fontWeight", "字重", "select"], ["fontSize", "字号"], ["lineHeight", "行高"], ["letterSpacing", "字间距"], ["textAlign", "对齐", "select"], ["color", "文字色", "color"]],
-        fill: [["backgroundColor", "填充", "color"]]
+        fill: [["backgroundColor", "颜色", "color"], ["backgroundImage", "背景图 / 渐变", "wide"]],
+        stroke: [["borderColor", "颜色", "color"], ["borderWidth", "宽度", "wide"], ["borderStyle", "线型", "select"]]
       };
       for (const [sectionName, fields] of Object.entries(sections)) {
         const container = this.uiEditorSections.get(sectionName);
@@ -2918,7 +3225,7 @@
       this.syncUiLayoutFields();
       const canEditText = !element.children.length && !/^(IMG|INPUT|TEXTAREA|SELECT|SVG|CANVAS|VIDEO|AUDIO|IFRAME|BR|HR)$/i.test(element.tagName);
       const typographySection = this.uiEditorSections.get("typography")?.closest(".ui-editor-section");
-      if (typographySection) typographySection.hidden = !this.textContent(element);
+      if (typographySection) typographySection.hidden = !this.hasTypography(element);
       this.uiEditorTextSection.hidden = !canEditText;
       if (textContainer) {
         textContainer.replaceChildren();
@@ -2961,7 +3268,8 @@
           justifyContent: ["flex-start", "center", "flex-end", "space-between", "space-around", "space-evenly"],
           alignItems: ["stretch", "flex-start", "center", "flex-end", "baseline"],
           fontWeight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-          textAlign: ["start", "left", "center", "right", "justify"]
+          textAlign: ["start", "left", "center", "right", "justify"],
+          borderStyle: ["none", "solid", "dashed", "dotted", "double"]
         }[property] || [];
         if (!options.includes(value)) options.unshift(value || "initial");
         for (const optionValue of options) {
@@ -3012,6 +3320,7 @@
     }
 
     uiOptionLabel(property, value) {
+      if (property === "borderStyle") return ({none:"无边框",solid:"实线",dashed:"虚线",dotted:"点线",double:"双线"})[value] || value;
       if (property === "fontWeight") return ({ "100": "极细 100", "200": "纤细 200", "300": "细体 300", "400": "常规 400", "500": "中等 500", "600": "半粗 600", "700": "粗体 700", "800": "特粗 800", "900": "黑体 900" })[value] || value;
       return ({ block: "块级", flex: "弹性", grid: "网格", inline: "行内", "inline-flex": "行内弹性", "inline-grid": "行内网格", row: "横向", column: "纵向", "row-reverse": "横向反转", "column-reverse": "纵向反转", normal: "默认", initial: "默认", stretch: "拉伸", "flex-start": "起点", "flex-end": "终点", start: "起点", end: "终点", left: "左对齐", right: "右对齐", center: "居中", justify: "两端对齐", baseline: "基线", "space-between": "两端分布", "space-around": "环绕分布", "space-evenly": "均匀分布", none: "隐藏" })[value] || value;
     }
@@ -3073,6 +3382,10 @@
       const number = Number.isFinite(parsed)
         ? (property === "opacity" ? parsed * 100 : parsed)
         : (Number.isFinite(fallbackLineHeight) ? fallbackLineHeight : 0);
+      if (property === "borderRadius" && number > 1000000 && /^\d+(?:\.\d+)?(?:e\+?\d+)?px$/i.test(String(value))) {
+        const rect = this.previewState?.element?.getBoundingClientRect();
+        if (rect) return this.formatUiNumericValue(Math.min(rect.width, rect.height) / 2, spec);
+      }
       return this.formatUiNumericValue(number, spec);
     }
 
@@ -3140,6 +3453,7 @@
       const numberControl = document.createElement("div");
       numberControl.className = "ui-number-control";
       const input = this.createUiNumericInput(property, label, value);
+      if (property === "borderRadius") input.title = "CSS 原始圆角：" + (this.previewState?.changes[property] ?? this.previewState?.before[property]);
       const unit = document.createElement("span");
       unit.className = "ui-number-unit";
       unit.textContent = spec?.unit || "";
@@ -3206,6 +3520,9 @@
     applyUiNumericPreview(input, value, displayValue, preserveDraft = false) {
       const property = input.dataset.previewProp;
       const cssValue = property === "opacity" ? String(value / 100) : String(value);
+      if (property === "borderRadius" && Number(this.previewState?.before.borderRadius?.replace(/px$/, "")) > 1000000
+        && !Object.hasOwn(this.previewState.changes, property)
+        && displayValue === this.uiNumericDisplayValue(property, this.previewState.before[property])) return;
       input.classList.remove("is-invalid");
       // Keep the live draft and caret (e.g. "0.0" while entering "0.01").
       // Normalize only on commit, stepping, or an actual range clamp.
@@ -3250,7 +3567,7 @@
     }
 
     previewPropertyLabel(property) {
-      return ({ color: "文字色", backgroundColor: "背景色", display: "布局", flexDirection: "方向", justifyContent: "主轴对齐", alignItems: "交叉对齐", fontFamily: "字体", fontWeight: "字重", fontSize: "字号", lineHeight: "行高", width: "宽度", height: "高度", left: "X 坐标", top: "Y 坐标", borderRadius: "圆角", padding: "内边距", paddingTop: "上内边距", paddingRight: "右内边距", paddingBottom: "下内边距", paddingLeft: "左内边距", gap: "间距", opacity: "透明度", margin: "外边距", textAlign: "文本对齐", letterSpacing: "字间距", boxShadow: "阴影", textContent: "文本" })[property] || property;
+      return ({ color: "文字色", backgroundColor: "填充", backgroundImage: "背景图 / 渐变", borderColor: "边框颜色", borderWidth: "边框宽度", borderStyle: "边框线型", display: "布局", flexDirection: "方向", justifyContent: "主轴对齐", alignItems: "交叉对齐", fontFamily: "字体", fontWeight: "字重", fontSize: "字号", lineHeight: "行高", width: "宽度", height: "高度", left: "X 坐标", top: "Y 坐标", borderRadius: "圆角", padding: "内边距", paddingTop: "上内边距", paddingRight: "右内边距", paddingBottom: "下内边距", paddingLeft: "左内边距", gap: "间距", opacity: "透明度", margin: "外边距", textAlign: "文本对齐", letterSpacing: "字间距", boxShadow: "阴影", textContent: "文本" })[property] || property;
     }
 
     previewColorValue(value) {
@@ -3275,7 +3592,7 @@
       const property = input.dataset.previewProp;
       const applied = this.applyPreviewProperty(property, input.value);
       if (applied) {
-        if (property === "color" || property === "backgroundColor") input.title = input.value;
+        if (property === "color" || property === "backgroundColor" || property === "borderColor") input.title = input.value;
         input.removeAttribute("aria-invalid");
         input.classList.remove("is-invalid");
         input.classList.remove("is-updated");
@@ -3334,6 +3651,8 @@
       if (!state || !element?.isConnected || !property) return false;
       const focusSnapshot = this.captureUiEditorFocus();
       let value = property === "textContent" ? String(rawValue ?? "") : String(rawValue ?? "").trim();
+      if (["color", "backgroundColor", "borderColor"].includes(property) && /^(?:[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value)) value = "#" + value;
+      if (property === "borderWidth" && /^\d+(?:\.\d+)?$/.test(value)) value += "px";
       if (["width", "height", "left", "top", "fontSize", "lineHeight", "borderRadius", "gap", "letterSpacing", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft"].includes(property) && /^-?\d+(?:\.\d+)?$/.test(value)) value += "px";
       const cssProperty = property.replace(/[A-Z]/g, (letter) => "-" + letter.toLowerCase());
       // Merely tabbing through a field must not create a local override.
@@ -3353,7 +3672,7 @@
       }
       state.changes[property] = value;
       if (property === "display") this.syncUiLayoutFields();
-      if (property === "color" || property === "backgroundColor") {
+      if (property === "color" || property === "backgroundColor" || property === "borderColor") {
         const swatch = this.uiEditor?.querySelector(`[data-color-swatch='${property}']`);
         if (swatch) swatch.style.background = value;
       }
@@ -3363,7 +3682,7 @@
         if (control === activeControl) continue;
         const controlValue = control.dataset.uiNumeric
           ? this.uiNumericDisplayValue(property, value)
-          : (property === "color" || property === "backgroundColor") && control.type === "color"
+          : (property === "color" || property === "backgroundColor" || property === "borderColor") && control.type === "color"
             ? this.previewColorValue(value)
             : value;
         control.value = controlValue;
@@ -3389,7 +3708,7 @@
 
     capturePreviewOriginal(element) {
       if (this.previewHistory.has(element)) return;
-      const keys = ["color", "backgroundColor", "display", "flexDirection", "justifyContent", "alignItems", "fontFamily", "fontWeight", "fontSize", "lineHeight", "width", "height", "left", "top", "borderRadius", "padding", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft", "gap", "opacity", "margin", "textAlign", "letterSpacing", "boxShadow"];
+      const keys = ["color", "backgroundColor", "backgroundImage", "borderColor", "borderWidth", "borderStyle", "display", "flexDirection", "justifyContent", "alignItems", "fontFamily", "fontWeight", "fontSize", "lineHeight", "width", "height", "left", "top", "borderRadius", "padding", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft", "gap", "opacity", "margin", "textAlign", "letterSpacing", "boxShadow"];
       const inline = {};
       const priorities = {};
       for (const key of keys) {
@@ -3633,6 +3952,7 @@
           id,
           displayId: "UI-" + String(sequence).padStart(3, "0"),
           sequence,
+          numberingEpoch: reservation.session?.numberingEpoch || 0,
           sessionId: this.session.id,
           source: isRegion ? "manual_region" : "manual",
           captureMode: isRegion ? "region" : this.inspectMode || "annotation",
@@ -3673,6 +3993,7 @@
         };
         const captureToken = this.createId("capture") + ":" + epoch;
         this.composer.captureToken = captureToken;
+        this.composer.releaseFocusAppearance = this.preserveFocusAppearance();
         const captureRect = this.captureRectForIssue(issueDraft, rect);
         this.lockComposerOverlay();
         this.captureTargets.set(captureToken, { element: isRegion ? null : element, rect: captureRect, region: isRegion, composer:this.composer });
@@ -3703,6 +4024,34 @@
         this.descriptionInput.setSelectionRange(end, end);
       };
       window.requestAnimationFrame(() => window.requestAnimationFrame(focus));
+    }
+
+    preserveFocusAppearance() {
+      // Copy only focus-related paint, not layout or input values. This lets
+      // the composer receive real focus while evidence retains the page ring.
+      let active = document.activeElement;
+      if (active === this.host) return () => {};
+      while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+      if (!active || active === document.body || active === this.host) return () => {};
+      const saved = [];
+      const properties = ["box-shadow", "outline", "outline-offset", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "background-color"];
+      for (let node = active; node && node !== document.body; node = node.parentElement || node.getRootNode?.().host) {
+        if (!node.style) continue;
+        const computed = getComputedStyle(node);
+        const values = properties.map(property => [property, computed.getPropertyValue(property)]);
+        for (const [property, value] of values) {
+          const previous = node.style.getPropertyValue(property), priority = node.style.getPropertyPriority(property);
+          node.style.setProperty(property, value, "important");
+          const applied = node.style.getPropertyValue(property);
+          saved.push(() => {
+            // Do not overwrite a host update made while capture was pending.
+            if (node.style.getPropertyValue(property) !== applied || node.style.getPropertyPriority(property) !== "important") return;
+            if (previous) node.style.setProperty(property, previous, priority);
+            else node.style.removeProperty(property);
+          });
+        }
+      }
+      return () => { for (const restore of saved.splice(0)) restore(); };
     }
 
     cancelRecordTransition() {
@@ -3819,6 +4168,7 @@
         this.renderMeasurementSnapshot(this.currentMeasurement);
       }
       this.descriptionInput.value = issue.description || "";
+      if (this.resultInput) this.resultInput.value = issue.resultReference || "";
       this.composer.formReady = true;
       this.composerError.textContent = "";
       this.saveButton.disabled = Boolean(this.composer.saving);
@@ -3827,7 +4177,7 @@
       this.renderCaptureState();
       this.renderComposerEvidence();
       this.saveButton.textContent = this.composer.mode === "edit" ? "保存修改" : "保存并继续";
-      this.cancelComposerButton.textContent = this.composer.mode === "edit" && issue.reviewStatus !== "draft" ? "取消编辑" : "稍后补充";
+      this.cancelComposerButton.textContent = "返回走查";
     }
 
     updateComposerControls() {
@@ -3915,6 +4265,7 @@
     }
 
     async captureEvidence(issue, rect, epoch, captureToken) {
+      const releaseFocusAppearance = this.composer?.releaseFocusAppearance;
       const serializedRect = {
         left: rect.left,
         top: rect.top,
@@ -3953,6 +4304,7 @@
           preserveMeasurement: Boolean(issue.measurement)
         });
       } finally {
+        releaseFocusAppearance?.();
         this.captureTargets.delete(captureToken);
       }
 
@@ -4006,6 +4358,7 @@
         priority: activeComposer.priority || "queued",
         title: description.trim() ? this.issueTitle(description, activeComposer.type) : "待补充描述",
         description,
+        resultReference: activeComposer.formReady ? this.resultInput?.value ?? activeComposer.issue.resultReference ?? "" : activeComposer.issue.resultReference || "",
         updatedAt: new Date().toISOString()
       };
       const response = await this.sendMessage({ type: "UIDELTA_PUT_ISSUE", issue: draft });
@@ -4065,7 +4418,11 @@
         this.renderComposerAsset(this.evidenceStrip, assetId, label, false, this.evidenceStrip.children[index]);
       });
       this.referenceList.replaceChildren();
-      for (const assetId of (Array.isArray(attachments.references) ? attachments.references : [])) this.renderComposerAsset(this.referenceList, assetId, "参考", true);
+      this.descriptionImages?.replaceChildren();
+      for (const assetId of (Array.isArray(attachments.references) ? attachments.references : [])) {
+        const isDescription = attachments.descriptionImages?.includes(assetId);
+        this.renderComposerAsset(isDescription && this.descriptionImages ? this.descriptionImages : this.referenceList, assetId, isDescription ? "问题附图" : "结果参考", true);
+      }
     }
 
     async renderComposerAsset(container, assetId, label, removable, existing = null) {
@@ -4080,6 +4437,7 @@
       if (!removable) wrapper.type = "button";
       const caption = document.createElement("span");
       caption.textContent = label;
+      if (removable) { caption.textContent = label + " · 加载中"; wrapper.appendChild(caption); }
       if (!removable) {
         wrapper.classList.add("evidence-placeholder");
         wrapper.disabled = true;
@@ -4114,6 +4472,7 @@
       }
       if (!isCurrent()) return;
       request.status = "ready";
+      if (removable) caption.remove();
       wrapper.classList.remove("evidence-placeholder");
       wrapper.appendChild(image);
       const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -4140,13 +4499,28 @@
       }
     }
 
-    async addReferenceImages(fileList) {
+    pasteComposerImages(event, role) {
+      if (!this.composer || this.composer.saving) return;
+      const files = Array.from(event.clipboardData?.items || []).filter((item) => item.kind === "file" && item.type.startsWith("image/")).map((item) => item.getAsFile()).filter(Boolean);
+      if (!files.length) return; // Plain text keeps native paste/undo behaviour.
+      event.preventDefault();
+      if (this.composer.referencePromise) { this.showToast("正在添加图片，请完成后再粘贴"); return; }
+      const text = event.clipboardData.getData("text/plain");
+      if (text) {
+        event.target.setRangeText(text, event.target.selectionStart, event.target.selectionEnd, "end");
+        this.persistTabContext();
+      }
+      return this.addReferenceImages(files, role);
+    }
+
+    async addReferenceImages(fileList, role = "result") {
       if (!this.composer || this.composer.saving || this.composer.referencePromise || !fileList?.length) return;
       const composer = this.composer;
       const files = Array.from(fileList).filter((file) => file.type.startsWith("image/")).slice(0, 10);
       if (!files.length) { this.composerError.textContent = "请选择图片文件。"; return; }
       composer.referenceError = "";
       this.referenceInput.disabled = true;
+      if (this.descriptionImageInput) this.descriptionImageInput.disabled = true;
       // Wait for capture's initial draft transaction before creating pending
       // reference assets; that transaction prunes attachments it did not see.
       const upload = (async () => {
@@ -4166,6 +4540,7 @@
           }
           current.push(response.asset.id);
           composer.issue.attachments = { ...(composer.issue.attachments || {}), references: [...current] };
+          if (role === "description") composer.issue.attachments.descriptionImages = [...(composer.issue.attachments.descriptionImages || []), response.asset.id];
           this.persistTabContext();
         }
       })();
@@ -4178,7 +4553,9 @@
         composer.referencePromise = null;
         if (this.composer === composer) {
           this.referenceInput.disabled = Boolean(composer.controlsLocked);
+          if (this.descriptionImageInput) this.descriptionImageInput.disabled = Boolean(composer.controlsLocked);
           this.referenceInput.value = "";
+          if (this.descriptionImageInput) this.descriptionImageInput.value = "";
           this.renderComposerEvidence();
         }
       }
@@ -4196,7 +4573,8 @@
     async removeReferenceAsset(assetId) {
       if (!this.composer || this.composer.saving || this.composer.referencePromise || !assetId) return;
       const references = (this.composer.issue.attachments?.references || []).filter((id) => id !== assetId);
-      this.composer.issue.attachments = { ...(this.composer.issue.attachments || {}), references };
+      this.composer.issue.attachments = { ...(this.composer.issue.attachments || {}), references,
+        descriptionImages:(this.composer.issue.attachments?.descriptionImages || []).filter((id) => id !== assetId) };
       // Removal is an unsaved edit. putIssue atomically prunes unused assets
       // on commit; cancelling must leave the original evidence intact.
       this.persistTabContext();
@@ -4219,7 +4597,7 @@
       if (!this.composer || this.composer.saving || this.saveButton.disabled) return;
       const activeComposer = this.composer;
       let description = this.descriptionInput.value.trim();
-      if (!description) {
+      if (!description && !this.composer.issue.attachments?.descriptionImages?.length && !this.composer.referencePromise) {
         this.composerError.textContent = "请写一句问题描述。";
         this.descriptionInput.focus();
         return;
@@ -4256,7 +4634,7 @@
       // Capture may still be running when Save is pressed. Keep accepting
       // typing during that wait, then submit the final text and choices.
       description = this.descriptionInput.value.trim();
-      if (!description) {
+      if (!description && !this.composer.issue.attachments?.descriptionImages?.length) {
         activeComposer.saving = false;
         this.saveButton.disabled = false;
         this.cancelComposerButton.disabled = false;
@@ -4274,6 +4652,7 @@
         priority: this.composer.priority || "queued",
         changeProposal: this.getPreviewProposal() || this.composer.issue.changeProposal || null,
         description,
+        resultReference: this.resultInput?.value ?? this.composer.issue.resultReference ?? "",
         title: this.issueTitle(description, this.composer.type),
         captureMetrics: this.composer.mode === "create" ? {
           ...(this.composer.issue.captureMetrics || {}),
@@ -4284,19 +4663,25 @@
       const choices = Array.from(this.shadow.querySelectorAll(".segment"));
       activeComposer.controlsLocked = true;
       const originalReadOnly = this.descriptionInput.readOnly;
+      const resultReadOnly = this.resultInput?.readOnly;
       const disabled = choices.map((select) => select.disabled);
       const originalReferenceDisabled = this.referenceInput?.disabled;
+      const originalDescriptionImageDisabled = this.descriptionImageInput?.disabled;
       this.descriptionInput.readOnly = true;
+      if (this.resultInput) this.resultInput.readOnly = true;
       choices.forEach((select) => { select.disabled = true; });
       if (this.referenceInput) this.referenceInput.disabled = true;
+      if (this.descriptionImageInput) this.descriptionImageInput.disabled = true;
       let response;
       try {
         response = await this.sendMessage({ type: "UIDELTA_PUT_ISSUE", issue });
       } finally {
         activeComposer.controlsLocked = false;
         this.descriptionInput.readOnly = originalReadOnly;
+        if (this.resultInput) this.resultInput.readOnly = resultReadOnly;
         choices.forEach((select, index) => { select.disabled = disabled[index]; });
         if (this.referenceInput) this.referenceInput.disabled = originalReferenceDisabled;
+        if (this.descriptionImageInput) this.descriptionImageInput.disabled = originalDescriptionImageDisabled;
       }
       if (this.composer !== activeComposer) return;
       if (!response || !response.ok) {
@@ -4337,23 +4722,37 @@
         return;
       }
       const composer = this.composer;
-      if (composer.captureStatus === "capturing") {
-        this.showToast("正在保存取证草稿，请稍候");
-        return;
-      }
-      if (composer.referencePromise) {
-        this.showToast("正在添加参考图，请稍候");
-        return;
-      }
-      if (composer.issue?.reviewStatus === "draft" || composer.mode === "create") {
-        const saved = await this.persistCapturedDraft();
-        if (!saved) { this.showToast("草稿未保存，请重试"); return; }
-      }
+      const discardDraft = composer.issue?.reviewStatus === "draft" || composer.mode === "create";
       this.composer = null;
       this.captureEpoch += 1;
-      const returnView = composer.returnView || (this.session?.status === "paused" ? "paused" : "inspect");
-      this.showView(returnView === "composer" ? "inspect" : returnView);
-      this.showToast(composer.issue?.reviewStatus === "draft" || composer.mode === "create" ? "草稿已保留" : "已取消编辑，原记录未修改");
+      this.cancelRecordTransition?.();
+      this.resetInspection({ preservePreview:true });
+      if (this.inspectMode === "ui") this.renderUiEditor(null);
+      this.clearVisuals();
+      this.showView(this.session?.status === "paused" ? "paused" : "inspect");
+      this.persistTabContext();
+      if (!discardDraft) {
+        this.showToast("已返回走查，原记录未修改");
+        return;
+      }
+      // Return immediately, but wait for any in-flight draft write before
+      // deleting it. Late capture responses clean up their own pending assets.
+      await Promise.allSettled([composer.capturePromise, composer.referencePromise]);
+      let response;
+      try { response = await this.sendMessage({ type:"UIDELTA_DELETE_ISSUE", issueId:composer.issue.id }); }
+      catch (error) { response = { ok:false, error:error?.message }; }
+      if (!response?.ok) {
+        this.showToast("已返回走查，但误选草稿清理失败，请在清单中重试删除");
+        return;
+      }
+      if (this.session?.id !== composer.issue.sessionId) return;
+      this.issues = this.issues.filter((issue) => issue.id !== composer.issue.id);
+      if (response.session && Number(response.session.revision) >= Number(this.session.revision || 0)) this.session = response.session;
+      this.pruneDeliverySelection();
+      this.updateCounts();
+      this.renderPins();
+      this.persistTabContext();
+      this.showToast("已返回走查，误选记录已取消");
     }
 
     issueDeletionFor(issueId) {
@@ -4459,7 +4858,7 @@
       let response;
       try {
         response = await this.sendMessage(job.clearAll
-          ? { type:"UIDELTA_DELETE_ISSUES", sessionId:job.sessionId, issueIds:job.issueIds }
+          ? { type:"UIDELTA_DELETE_ISSUES", sessionId:job.sessionId, issueIds:job.issueIds, resetSequence:true }
           : { type:"UIDELTA_DELETE_ISSUE", issueId:job.issueIds[0] });
       } catch (error) { response = { ok:false, error:error?.message }; }
       if (!response?.ok) {
@@ -5117,36 +5516,59 @@
     }
 
     renderPins() {
-      if (this.browseMode) {
-        this.pinsLayer.replaceChildren();
-        return;
-      }
-      this.pinsLayer.replaceChildren();
       this.annotationTargets = new WeakMap();
-      if (!this.enabled || !this.session || !this.isSessionActive() || this.interactionDown || this.currentView !== "inspect") {
+      if (!this.enabled || !this.session || !this.isSessionActive()) {
+        this.pinsLayer.replaceChildren();
         this.pinsLayer.style.display = "none";
         return;
       }
       this.pinsLayer.style.display = "";
+      const previous = new Map(Array.from(this.pinsLayer.children).map((pin) => [pin.dataset.issueId, pin]));
+      const occupied = [];
       for (const issue of this.issues) {
         if (!issue.pageSnapshot || issue.pageSnapshot.route !== this.currentRoute()) continue;
         const element = issue.region ? null : this.resolveAnchor(issue.elementAnchor);
         if (!element && !issue.region) continue;
+        if (element?.checkVisibility && !element.checkVisibility({checkOpacity:true,checkVisibilityCSS:true})) continue;
         if (element) this.annotationTargets.set(element, issue);
-        const rect = issue.region || element.getBoundingClientRect();
-        if (!this.isVisible(rect)) continue;
-        const pin = document.createElement("button");
+        const rect = issue.region ? {
+          ...issue.region,
+          left:issue.region.left + (issue.pageSnapshot.scroll?.x || 0) - window.scrollX,
+          right:issue.region.right + (issue.pageSnapshot.scroll?.x || 0) - window.scrollX,
+          top:issue.region.top + (issue.pageSnapshot.scroll?.y || 0) - window.scrollY,
+          bottom:issue.region.bottom + (issue.pageSnapshot.scroll?.y || 0) - window.scrollY
+        } : element.getBoundingClientRect();
+        if (!this.isVisible(rect) || (element && !this.visibleComposerRect(element, rect))) continue;
+        const pin = previous.get(issue.id) || document.createElement("button");
+        previous.delete(issue.id);
+        pin.type = "button";
         pin.className = "pin";
         if (["major", "crash", "blocked"].includes(issue.severity)) pin.classList.add("major");
         pin.dataset.action = "open-pin";
         pin.dataset.issueId = issue.id;
         pin.setAttribute("aria-label", issue.displayId + " " + (issue.title || ""));
-        pin.title = issue.title || issue.description || issue.displayId;
+        pin.removeAttribute("title");
         pin.textContent = String(issue.sequence);
-        pin.style.left = this.clamp(rect.right - 11, 4, window.innerWidth - 26) + "px";
-        pin.style.top = this.clamp(rect.top - 11, 4, window.innerHeight - 26) + "px";
-        this.pinsLayer.appendChild(pin);
+        const size = Math.max(24, 12 + pin.textContent.length * 6);
+        pin.style.width = pin.style.height = size + "px";
+        let left = this.clamp(rect.right - size / 2, 4, window.innerWidth - size - 4);
+        let top = this.clamp(rect.top - size / 2, 4, window.innerHeight - size - 4);
+        const originLeft = left, originTop = top;
+        for (let attempt = 1; attempt <= this.issues.length && occupied.some((box) => left < box.right + 3 && left + size + 3 > box.left && top < box.bottom + 3 && top + size + 3 > box.top); attempt++) {
+          const direction = originLeft >= 4 * (size + 4) + 4 ? -1 : 1;
+          left = this.clamp(originLeft + direction * (attempt % 5) * (size + 4), 4, window.innerWidth - size - 4);
+          top = this.clamp(originTop + Math.floor(attempt / 5) * (size + 4), 4, window.innerHeight - size - 4);
+        }
+        occupied.push({left,top,right:left+size,bottom:top+size});
+        pin.style.left = left + "px";
+        pin.style.top = top + "px";
+        // Browsing remains native: the marker must not swallow a switch/link.
+        pin.style.pointerEvents = this.browseMode || this.interactionDown ? "none" : "auto";
+        pin.tabIndex = this.browseMode || this.interactionDown ? -1 : 0;
+        if (!pin.parentNode) this.pinsLayer.appendChild(pin);
       }
+      for (const pin of previous.values()) pin.remove();
+      if (this.tooltip?.dataset?.pinIssueId && !Array.from(this.pinsLayer.children).some((pin) => pin.dataset.issueId === this.tooltip.dataset.pinIssueId)) this.hidePinTooltip();
     }
 
     issueForHover(element, x, y) {
@@ -5262,13 +5684,13 @@
           this.persistTabContext();
           this.lastRoute = route;
           this.resetInspection();
-          if (!this.browseMode) this.renderPins();
+          this.renderPins();
           this.touchCurrentPage();
           if (!this.browseMode) this.consumePendingJump();
           this.syncModeSurfaces();
           return;
         }
-        if (!this.browseMode) this.renderPins();
+        this.renderPins();
       }, 750);
     }
 
@@ -5342,6 +5764,7 @@
         id: issue.displayId,
         title: issue.title,
         description: issue.description,
+        resultReference: issue.resultReference || "",
         type: issue.type,
         priority: issue.priority,
         severity: issue.severity,
@@ -5527,6 +5950,8 @@
         id: issue.displayId,
         title: issue.title,
         description: issue.description,
+        resultReference: issue.resultReference || "",
+        attachments: issue.attachments || {},
         type: issue.type,
         severity: issue.severity,
         page: issue.pageSnapshot,
@@ -5593,14 +6018,7 @@
       }
 
       const button = event.target.closest("[data-action]");
-      if (!button) {
-        const row = event.target.closest(".issue-row");
-        if (row) {
-          const issue = this.issues.find((item) => item.id === row.dataset.issueId);
-          if (issue) this.jumpToIssue(issue);
-        }
-        return;
-      }
+      if (!button) return; // Reading/selecting card text never leaves the list.
       event.preventDefault();
       event.stopPropagation();
       const action = button.dataset.action;
@@ -5744,8 +6162,8 @@
       }
     }
 
-    resetInspection() {
-      this.resetPreview(false);
+    resetInspection({ preservePreview = false } = {}) {
+      if (!preservePreview) this.resetPreview(false);
       this.uiEditor?.classList.remove("visible");
       this.selected = null;
       this.hovered = null;
@@ -6361,7 +6779,7 @@
     issueTitle(description, type) {
       const clean = description.replace(/\s+/g, " ").replace(/[。！？!?]+$/g, "");
       const prefix = type === "functional" ? "功能" : type === "content" ? "文案" : "UI";
-      return "【" + prefix + "】" + (clean.length > 40 ? clean.slice(0, 40) + "…" : clean);
+      return "【" + prefix + "】" + (clean.length > 40 ? clean.slice(0, 40) + "…" : clean || "图片问题");
     }
 
     nextSequence() {
@@ -6420,7 +6838,7 @@
       this.lastMeasurement = null;
       this.lastMeasurementSource = null;
       this.lastMeasurementTarget = null;
-      this.pinsLayer.replaceChildren();
+      if (!this.enabled) this.pinsLayer.replaceChildren();
       this.recordPrompt?.classList.remove("visible");
       this.regionBox.style.display = "none";
       this.regionBox.classList.remove("editable");

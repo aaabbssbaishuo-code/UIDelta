@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.4 preview update — 2026-09-09
+
+- Keeps saved issue pins visible and aligned while browsing, switching modes, scrolling and changing routes.
+- Improves mode switching, returning to review and region recording without losing the current draft or page focus.
+- Separates problem evidence from result references across records, HTML, XLSX and ZIP delivery.
+- Adds a dedicated Chrome Web Store candidate build while preserving the existing unpacked-install package.
+- Moves public repository and Pages links to `tu-dot/UIDelta`; the displayed author is now 土墩.
+- Passes all 179 automated tests, syntax/resource checks and package validation.
+
 ## 0.9.4 preview update — 2026-09-04
 
 - Updates the compact editor theme, fixed action areas, delivery previews and save feedback.

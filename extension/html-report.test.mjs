@@ -24,6 +24,28 @@ const assets = [
 ].map(asset => ({ ...asset, issueId: 'i1' }));
 const build = (issues = [issue()], evidence = assets) => worker.buildHtmlReport({ id: 's1', name: '项目管理平台' }, issues, evidence, '2026-09-04T07:12:00Z');
 
+test('报告编号从 1 连续排列，保留原编号映射且不更改存储 ID', async () => {
+  const input = [issue({displayId:'UI-013',sequence:13}),issue({id:'i2',displayId:'UI-015',sequence:15}),issue({id:'i3',type:'content',displayId:'CT-027',sequence:27})];
+  const before = JSON.stringify(input);
+  const html = await build(input);
+  const ui = domHarness(html);
+  const cards = ui.all('.issue');
+  assert.deepEqual(cards.map(card=>card.dataset.displayId),['UI-001','UI-002','CT-003']);
+  assert.deepEqual(cards.map(card=>card.dataset.id),['i1','i2','i3']);
+  assert.match(html,/UI-013（对应原截图与证据包）/);
+  assert.match(html,/CT-027（对应原截图与证据包）/);
+  assert.ok(cards[0].dataset.search.includes('ui-001')&&cards[0].dataset.search.includes('ui-013'));
+  assert.equal(JSON.stringify(input),before);
+});
+
+test('结果文字安全显示并可搜索，问题附图和结果图用途区分', async () => {
+  const html=await build([issue({resultReference:'期望 <script>alert(1)</script>',attachments:{references:['ref','result'],descriptionImages:['ref']}})],
+    [...assets,{id:'result',issueId:'i1',kind:'reference',dataUrl:png}]);
+  assert.match(html,/期望 &lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.match(html,/data-label="问题附图 1"/);assert.match(html,/data-label="结果参考 2"/);
+  assert.match(html,/data-search="[^"]*期望/);
+});
+
 // Parse the actual generated HTML and run its script. Layout and native dialog
 // behaviour remain a separate real-browser acceptance gate.
 function domHarness(html, { stored = {}, readFailure = false, writeFailure = false, exportFailure = false } = {}) {
@@ -126,7 +148,7 @@ test('超长单行和多行描述完整保留，不被 firstLine 100 字截断�
 
 test('当前附件匹配、参考图保留；缺少截图不留空白双槽', async () => {
   const ui = domHarness(await build([issue({ attachments: { context: 'ctx', detail: 'missing', references: ['ref'] } })]));
-  assert.deepEqual(ui.all('[data-evidence]').map(n => n.dataset.label), ['全景','参考 1']);
+  assert.deepEqual(ui.all('[data-evidence]').map(n => n.dataset.label), ['全景','结果参考 1']);
   assert.match(worker.htmlReportStyles(), /\.evidence\{display:flex;flex-direction:column/);
   assert.match(worker.htmlReportStyles(), /object-fit:contain/);
   const empty = domHarness(await build([issue()], []));
@@ -223,7 +245,7 @@ test('图片打开对应位置，左右键/按钮循环切换当前卡片证据'
   assert.equal(ui.document.body.style.overflow, 'hidden');
   assert.equal(ui.document.activeElement, ui.$('#viewer-close'));
   assert.equal(ui.$('#viewer').fire('keydown',{key:'ArrowRight'}).defaultPrevented, true);
-  assert.equal(ui.$('#viewer-title').textContent, 'UI-001 · 参考 1');
+  assert.equal(ui.$('#viewer-title').textContent, 'UI-001 · 结果参考 1');
   ui.$('#viewer-next').click(); assert.equal(ui.$('#viewer-counter').textContent, '1 / 3');
   ui.$('#viewer-prev').click(); assert.equal(ui.$('#viewer-counter').textContent, '3 / 3');
   ui.$('#viewer').fire('keydown',{key:'ArrowLeft',altKey:true});

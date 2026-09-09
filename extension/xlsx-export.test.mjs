@@ -23,7 +23,7 @@ test('证据预览为第一张且唯一选中，冻结表头和编号；跟进�
   assert.match(files['xl/worksheets/sheet1.xml'], /xSplit="1" ySplit="4" topLeftCell="B5"/);
   assert.match(files['xl/worksheets/sheet2.xml'], /tabSelected="0"/);
   assert.match(files['xl/worksheets/sheet2.xml'], /xSplit="3" ySplit="4" topLeftCell="D5"/);
-  assert.match(files['xl/worksheets/sheet2.xml'], /<autoFilter ref="A4:AC5"\/>/);
+  assert.match(files['xl/worksheets/sheet2.xml'], /<autoFilter ref="A4:AF5"\/>/);
   assert.doesNotMatch(files['xl/worksheets/sheet1.xml'], /<autoFilter/, '截图表不提供会打乱图片锚点的排序入口');
 });
 
@@ -114,4 +114,42 @@ test('内容行高有上限且短问题不会保留截图高度；文本更长�
   assert.equal(context.xlsxRowHeight(['简短问题'], [42], 48), 48);
   assert.ok(context.xlsxRowHeight(['长段落'.repeat(30)], [42], 48) > 48);
   assert.equal(context.xlsxRowHeight(['很长'.repeat(5000)], [28], 48), 409);
+});
+
+test('补充说明与全部附图合并进证据预览，两张 Sheet 且描述 14 号加粗', async () => {
+  const blob=new Blob(['png'],{type:'image/png'});
+  const refs=Array.from({length:10},(_,i)=>'ref'+i);
+  const files=await build([issue({resultReference:'期望 <完整>\n第二行',attachments:{references:refs,descriptionImages:['ref0']}}),issue({id:'i2',displayId:'UI-002'})],
+    refs.map(id=>({id,issueId:'i1',kind:'reference',blob,width:800,height:400})));
+  const list=files['xl/worksheets/sheet2.xml'], evidence=files['xl/worksheets/sheet1.xml'];
+  assert.match(evidence,/补充说明/);assert.match(evidence,/补充图片/);
+  assert.match(evidence,/期望 &lt;完整&gt;\n第二行/);
+  assert.match(evidence,/INDEX\('问题清单'!\$AD\$5:\$AD\$6,MATCH\(\$A5/);
+  assert.equal((files['xl/workbook.xml'].match(/<sheet name=/g)||[]).length,2);
+  assert.ok(!Object.keys(files).some(name=>/sheet3|drawing2/.test(name)));
+  for(const data of Object.values(files).filter(value=>typeof value==='string'))assert.doesNotMatch(data,/sheet3|drawing2|'补充图片'!/);
+  for(const [sheet,col] of [[evidence,'B'],[list,'C']]){
+    assert.match(sheet,new RegExp('r="'+col+'5" s="13"'));
+    assert.match(sheet,new RegExp('r="'+col+'6" s="14"'));
+  }
+  const styles=files['xl/styles.xml'];
+  assert.match(styles,/<font><b\/><sz val="14"\/>/);
+  const xfs=[...styles.match(/<cellXfs[^>]*>(.*?)<\/cellXfs>/s)[1].matchAll(/<xf\b[^>]*>/g)].map(match=>match[0]);
+  assert.match(xfs[13],/fontId="6" fillId="2"/);assert.match(xfs[14],/fontId="6" fillId="3"/);
+  const drawing=files['xl/drawings/drawing1.xml'];
+  const anchors=[...drawing.matchAll(/<xdr:oneCellAnchor>(.*?)<\/xdr:oneCellAnchor>/g)].map(match=>match[1]);
+  assert.equal(anchors.length,10);
+  const height=Number(evidence.match(/<row r="5" ht="([^"]+)"/)[1])*4/3;
+  const boxes=anchors.map(anchor=>{
+    assert.match(anchor,/<xdr:col>8<\/xdr:col>/);assert.match(anchor,/<xdr:row>4<\/xdr:row>/);
+    const x=Number(anchor.match(/<xdr:colOff>(\d+)/)[1])/9525, y=Number(anchor.match(/<xdr:rowOff>(\d+)/)[1])/9525;
+    const [,w,h]=anchor.match(/<xdr:ext cx="(\d+)" cy="(\d+)"/);
+    return {x,y,w:Number(w)/9525,h:Number(h)/9525};
+  });
+  for(const [i,box] of boxes.entries()){
+    assert.ok(box.y+box.h<=height);assert.ok(box.x+box.w<=48*7+5);
+    assert.ok(Math.abs(box.w/box.h-2)<0.001);
+    for(const other of boxes.slice(i+1))assert.ok(box.x+box.w<=other.x || other.x+other.w<=box.x || box.y+box.h<=other.y || other.y+other.h<=box.y);
+  }
+  assert.equal(Object.keys(files).filter(key=>key.startsWith('xl/media/')).length,10);
 });

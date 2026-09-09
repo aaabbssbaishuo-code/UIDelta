@@ -226,6 +226,7 @@ test('清空不受筛选与勾选影响，只提交点击当时的本次问题�
   review.clearIssues(); review.issues.push({id:'new',sessionId:'s'}); await clock.advance(3000);
   assert.deepEqual(Array.from(messages[0].issueIds),['a','b','c']); assert.equal(messages[0].sessionId,'s');
   assert.equal(messages[0].type,'UIDELTA_DELETE_ISSUES');
+  assert.equal(messages[0].resetSequence,true);
   assert.deepEqual(review.issues.map(i => i.id),['new']); assert.equal(review.deliverySelection.size,0);
 });
 
@@ -287,7 +288,8 @@ function databaseHarness({status = 'active', failAsset = false, locked = false} 
   };
   let transactions = 0;
   const db = {transaction(stores,mode) {
-    transactions++; assert.equal(mode,'readwrite'); assert.deepEqual(Array.from(stores),['issues','sessions','assets']);
+    transactions++; assert.equal(mode,'readwrite');
+    assert.ok(['issues,sessions,assets','sessions,issues'].includes(Array.from(stores).join(',')));
     const staged = structuredClone(tables); let aborted = false;
     const completion = deferred();
     setImmediate(() => { if (!aborted) {tables = staged; completion.resolve();} });
@@ -304,11 +306,13 @@ function databaseHarness({status = 'active', failAsset = false, locked = false} 
   }};
   const context = vm.createContext({URL,Date,STORE_ISSUES:'issues',STORE_SESSIONS:'sessions',STORE_ASSETS:'assets',
     openDatabase:async()=>db,transactionDone:t=>t.done,requestResult:r=>r,
-    nonEmptyString:v=>typeof v === 'string'?v.trim():'',finiteNumber:(v,f)=>Number.isFinite(Number(v))?Number(v):f});
+    isRecord:v=>v && typeof v==='object', issueTypePrefix:()=> 'UI', structuredClone,
+    nonEmptyString:v=>typeof v === 'string'?v.trim():'',finiteNumber:(v,f)=>Number.isFinite(Number(v))?Number(v):f,
+    positiveSafeInteger:(v,f)=>Number.isSafeInteger(Number(v)) && Number(v)>0?Number(v):f});
   const source = worker.slice(worker.indexOf('async function deleteIssue('),worker.indexOf('async function captureEvidence('))
     + worker.slice(worker.indexOf('function restoreExpiredFinalizationInStore('),worker.indexOf('async function cleanupStaleCompletedSessions('))
     + worker.slice(worker.indexOf('function normalizeOrigin('),worker.indexOf('async function findLatestActiveSessionForSender('));
-  vm.runInContext(source,context);
+  vm.runInContext(source + worker.slice(worker.indexOf('async function reserveIssueSequence('),worker.indexOf('async function deleteIssue(')),context);
   return {context, get tables(){return tables;},get transactions(){return transactions;}};
 }
 const sender = {tab:{url:'https://test.example/page'}};
@@ -321,6 +325,49 @@ test('批量删除在单一事务里清理全部截图类型并递增 revision�
   assert.deepEqual([...h.tables.assets.keys()],['keep-context','keep-detail','keep-reference']);
   assert.equal(h.tables.sessions.get('s').revision,5); assert.equal(h.tables.sessions.get('s').nextIssueNumber,10);
   assert.equal(h.tables.sessions.get('s').status,'active'); assert.equal(result.deletedAssetIds.length,6);
+});
+
+test('明确清空后编号重置为 1；普通删除和仍有其他问题时不重排', async () => {
+  const cleared = databaseHarness();
+  const result = await cleared.context.deleteIssues({sessionId:'s',issueIds:['a','b'],resetSequence:true},sender);
+  assert.equal(result.session.nextIssueNumber,1);
+  assert.equal(result.session.numberingEpoch,1);
+  assert.equal(cleared.tables.sessions.get('s').nextIssueNumber,1);
+  assert.equal(cleared.tables.issues.has('keep'),true);
+  const first = await cleared.context.reserveIssueSequence('s',sender);
+  assert.equal(first.sequence,1); assert.equal(first.displayId,'UI-001');
+  assert.equal((await cleared.context.reserveIssueSequence('s',sender)).sequence,2);
+  const partial = databaseHarness();
+  await partial.context.deleteIssues({sessionId:'s',issueIds:['a'],resetSequence:true},sender);
+  assert.equal(partial.tables.sessions.get('s').nextIssueNumber,10);
+  assert.equal(partial.tables.issues.has('b'),true);
+  const failed = databaseHarness({failAsset:true});
+  await assert.rejects(failed.context.deleteIssues({sessionId:'s',issueIds:['a','b'],resetSequence:true},sender));
+  assert.equal(failed.tables.sessions.get('s').nextIssueNumber,10);
+});
+
+test('清空后的旧标签页迟到草稿不能恢复旧序号，既有问题不重排', async () => {
+  const h=databaseHarness();
+  await h.context.deleteIssues({sessionId:'s',issueIds:['a','b'],resetSequence:true},sender);
+  for(const kind of ['context','detail'])h.tables.assets.set('new-'+kind,{id:'new-'+kind,issueId:'new',sessionId:'s',kind});
+  const issue={id:'new',sessionId:'s',sequence:29,numberingEpoch:0,attachments:{context:'new-context',detail:'new-detail'}};
+  const saved=await h.context.putIssue(issue,sender);
+  assert.equal(saved.issue.sequence,1);assert.equal(saved.issue.displayId,'UI-001');
+  assert.equal(saved.session.nextIssueNumber,2);
+  const updated=await h.context.putIssue({...saved.issue,sequence:90},sender);
+  assert.equal(updated.issue.sequence,1);
+  assert.equal(h.tables.issues.has('keep'),true);
+});
+
+test('点击卡片空白、标题和页面信息保持清单与选择集合', () => {
+  const {review,Node}=harness();
+  review.jumpToIssue=()=>assert.fail('卡片正文不能跳转检查元素');
+  const row=review.issueList.children[0];
+  for(const tag of ['div','h3','span']){
+    const node=new Node(tag);row.append(node);review.onUiClick({target:node,stopPropagation(){}});
+    assert.equal(review.currentView,'inbox');assert.equal(review.issueList.children[0],row);
+    assert.equal(review.deliverySelection.size,3);
+  }
 });
 
 test('跨会话混入、跨站点、已结束与生成证据包期间均拒绝删除并完整回滚', async () => {

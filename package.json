@@ -11,6 +11,7 @@
     "check": "node scripts/check.mjs",
     "check:installed": "node scripts/check-installed.mjs",
     "test": "node --test extension/*.test.mjs",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "build:webstore": "node scripts/build-webstore.mjs"
   }
 }

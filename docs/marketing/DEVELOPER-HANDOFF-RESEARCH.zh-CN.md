@@ -63,11 +63,11 @@ UIDelta 更适合强调自身组合：**开源、本地保存、文件交付、M
 
 | 事实 | 实现位置 |
 | --- | --- |
-| ZIP 包含 Markdown、JSON 与图片附件；schemaVersion 为 4 | [downloadZipDelivery / buildDeliveryManifest](https://github.com/aaabbssbaishuo-code/UIDelta/blob/2e7c1ed1eb040577505e26144207551b4411846c/extension/service-worker.js#L973) |
-| 报告输出 DOM 选择器、test id、文本、实测值与问题描述 | [buildMarkdownReport](https://github.com/aaabbssbaishuo-code/UIDelta/blob/2e7c1ed1eb040577505e26144207551b4411846c/extension/service-worker.js#L1771) |
-| JSON 中的开发字段保留多种元素线索与测量结果 | [buildDeveloperFields](https://github.com/aaabbssbaishuo-code/UIDelta/blob/2e7c1ed1eb040577505e26144207551b4411846c/extension/service-worker.js#L2023) |
-| 页面快照保留 URL、路由、视口、滚动与时间 | [pageSnapshot](https://github.com/aaabbssbaishuo-code/UIDelta/blob/2e7c1ed1eb040577505e26144207551b4411846c/extension/content.js#L5040) |
-| 元素锚点保留首选 / 回退选择器、test id、文本、父级和几何信息 | [elementAnchor](https://github.com/aaabbssbaishuo-code/UIDelta/blob/2e7c1ed1eb040577505e26144207551b4411846c/extension/content.js#L5135) |
+| ZIP 包含 Markdown、JSON 与图片附件；schemaVersion 为 4 | [downloadZipDelivery / buildDeliveryManifest](https://github.com/tu-dot/UIDelta/blob/2e7c1ed1eb040577505e26144207551b4411846c/extension/service-worker.js#L973) |
+| 报告输出 DOM 选择器、test id、文本、实测值与问题描述 | [buildMarkdownReport](https://github.com/tu-dot/UIDelta/blob/2e7c1ed1eb040577505e26144207551b4411846c/extension/service-worker.js#L1771) |
+| JSON 中的开发字段保留多种元素线索与测量结果 | [buildDeveloperFields](https://github.com/tu-dot/UIDelta/blob/2e7c1ed1eb040577505e26144207551b4411846c/extension/service-worker.js#L2023) |
+| 页面快照保留 URL、路由、视口、滚动与时间 | [pageSnapshot](https://github.com/tu-dot/UIDelta/blob/2e7c1ed1eb040577505e26144207551b4411846c/extension/content.js#L5040) |
+| 元素锚点保留首选 / 回退选择器、test id、文本、父级和几何信息 | [elementAnchor](https://github.com/tu-dot/UIDelta/blob/2e7c1ed1eb040577505e26144207551b4411846c/extension/content.js#L5135) |
 
 「元素地址」准确说是 **网页中的定位线索**。当前 ZIP 不提供已验证的源码文件与行号，不包含项目源码、网络请求日志、控制台错误、完整交互录像或完整 DOM 快照。
 

@@ -38,6 +38,6 @@ HTML 协作问题单，打开就能看；XLSX 排期问题表，方便安排修�
 
 当前设计对比需要手动导入 Figma Frame JSON 快照。AI 自动走查和在线 Figma 同步仍在规划中。Chrome 内部页面、扩展商店等受保护页面无法使用。
 
-官网：https://aaabbssbaishuo-code.github.io/UIDelta/
-源码：https://github.com/aaabbssbaishuo-code/UIDelta
-隐私：https://aaabbssbaishuo-code.github.io/UIDelta/privacy.html
+官网：https://tu-dot.github.io/UIDelta/
+源码：https://github.com/tu-dot/UIDelta
+隐私：https://tu-dot.github.io/UIDelta/privacy.html

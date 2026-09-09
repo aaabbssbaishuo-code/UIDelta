@@ -26,8 +26,8 @@ HTML 用来查看、跟进。XLSX 用来整理、排期。ZIP 带上报告、元
 
 欢迎拿一个真实页面试试，也欢迎把不顺手的地方告诉我。
 
-官网：https://aaabbssbaishuo-code.github.io/UIDelta/
-GitHub：https://github.com/aaabbssbaishuo-code/UIDelta
+官网：https://tu-dot.github.io/UIDelta/
+GitHub：https://github.com/tu-dot/UIDelta
 
 Agent 处理需要项目源码、运行环境和修改授权；完成后仍需复核。
 
@@ -39,7 +39,7 @@ Agent 处理需要项目源码、运行环境和修改授权；完成后仍需�
 
 免费使用，无需账号，数据留在本地。当前为开发者预览版，通过 Chrome 手动加载。
 
-https://github.com/aaabbssbaishuo-code/UIDelta
+https://github.com/tu-dot/UIDelta
 
 ## English launch post
 
@@ -57,7 +57,7 @@ Free and open source. No account. Review data stays in your browser. v0.9.4 is a
 
 Try it on a page you're reviewing. I'd like to hear where it helps and where it gets in the way.
 
-https://github.com/aaabbssbaishuo-code/UIDelta
+https://github.com/tu-dot/UIDelta
 
 ## 配图顺序
 
@@ -82,6 +82,6 @@ UIDelta 把这些依据跟着问题一起打包：页面 URL、DOM 选择器、�
 
 免费开源，走查数据保存在本地。Codex 需要项目源码、运行环境与修改授权；UIDelta 提供网页定位线索，不是预先确定的源码行号。暂不承诺提效比例或自动修复成功率。
 
-https://github.com/aaabbssbaishuo-code/UIDelta#for-developers
+https://github.com/tu-dot/UIDelta#for-developers
 
 配图：`brand/feature-developer-16x9.png`，1920×1080。研究依据见 [开发者交付调研](marketing/DEVELOPER-HANDOFF-RESEARCH.zh-CN.md)。

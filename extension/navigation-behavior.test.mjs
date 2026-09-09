@@ -8,6 +8,7 @@ class Surface {
     this.style = {};
     this.dataset = {};
     this.attributes = {};
+    this.children = [];
     this.classes = new Set();
     this.classList = {
       add: (name) => this.classes.add(name),
@@ -37,7 +38,7 @@ function review(overrides = {}) {
   const browseButton = new Surface();
   const instance = Object.assign(Object.create(contentSandbox.Review.prototype), {
     enabled: true, tabConfigured: true, browseMode: false, currentView: "inspect", inspectMode: "ui",
-    session: { id: "session-1", status: "active" },
+    session: { id: "session-1", status: "active" }, issues:[],
     host: new Surface(), panel: new Surface(), uiEditor: new Surface(), dock: new Surface(), pinsLayer: new Surface(), browseState: new Surface(),
     modeToolbar: Object.assign(new Surface(), { querySelector: () => browseButton }),
     shadow: { activeElement: { blur: () => events.push("blur") } },
@@ -119,7 +120,7 @@ const cases = [
     assert.equal(instance.isSessionActive(), true, "浏览态不应暂停或终止取证会话");
     assert.equal(instance.panel.style.display, "none");
     assert.equal(instance.uiEditor.classList.contains("visible"), false);
-    assert.equal(instance.pinsLayer.style.display, "none");
+    assert.equal(instance.pinsLayer.style.display, "");
     assert.equal(instance.modeToolbar.style.display, "flex");
     assert.equal(instance.browseState.hidden, false);
     assert.equal(browseButton.attributes["aria-pressed"], "true");
